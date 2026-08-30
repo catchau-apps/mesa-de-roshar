@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-tema="claro">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Mesa de Roshar — ferramenta de jogo para o Cosmere RPG</title>
+<meta name="description" content="Ficha, construtor de personagem, rolador e busca de regras para Guerra das Tempestades (Cosmere RPG). Funciona offline, no navegador, sem conta e sem anúncio.">
+<meta name="theme-color" content="#f6f2ea" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#17151a" media="(prefers-color-scheme: dark)">
+<link rel="icon" href="assets/icone.svg" type="image/svg+xml">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,500;0,600;1,500&amp;family=Inter:wght@400;500;600;700&amp;display=swap">
+<link rel="stylesheet" href="assets/css/base.css?v=2">
+<link rel="stylesheet" href="assets/css/componentes.css?v=2">
+<link rel="stylesheet" href="assets/css/layout.css?v=2">
+<link rel="stylesheet" href="assets/css/ficha.css?v=2">
+<link rel="stylesheet" href="assets/css/site.css?v=2">
+<script>
+  // Aplica o tema antes de pintar, senao a tela pisca branca.
+  (function () {
+    try {
+      var salvo = localStorage.getItem('mesa-roshar:tema');
+      var escuro = salvo ? salvo === 'escuro'
+                         : matchMedia('(prefers-color-scheme: dark)').matches;
+      document.documentElement.dataset.tema = escuro ? 'escuro' : 'claro';
+    } catch (e) {}
+  })();
+</script>
+</head>
+<body>
+<a class="pular-para-conteudo" href="#conteudo">Pular para o conteúdo</a>
+
+<header class="cabecalho">
+  <div class="envolto cabecalho__linha">
+    <a class="marca" href="./">
+      <svg class="marca__glifo" viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
+        <path d="M16 2 27 9v14L16 30 5 23V9z" stroke-linejoin="round"/>
+        <path d="M16 9v14M16 16l7-4M16 16l-7-4" stroke-linecap="round"/>
+      </svg>
+      <span class="marca__texto">
+        <b>Mesa de Roshar</b>
+        <span>Cosmere RPG</span>
+      </span>
+    </a>
+    <nav class="cabecalho__acoes">
+      <button class="btn btn--fantasma tema" type="button" data-tema-alternar aria-label="Alternar tema claro e escuro">
+        <svg class="tema__sol" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="4.2"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.5 1.5M17.6 17.6l1.5 1.5M19.1 4.9l-1.5 1.5M6.4 17.6l-1.5 1.5" stroke-linecap="round"/></svg>
+        <svg class="tema__lua" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5z" stroke-linejoin="round"/></svg>
+      </button>
+      <a class="btn btn--principal" href="app.html">Abrir a mesa</a>
+    </nav>
+  </div>
+</header>
+
+<main id="conteudo">
+
+  <section class="heroi">
+    <div class="envolto heroi__grade">
+      <div>
+        <span class="heroi__selo">Guerra das Tempestades</span>
+        <h1>A ficha que <em>não atrapalha</em> a sua mesa.</h1>
+        <p class="heroi__texto">
+          Ficha, criação de personagem, rolador com dado de trama e busca nas regras
+          do Cosmere RPG. Abre num toque, responde na hora e continua funcionando
+          quando o Wi-Fi da casa do seu amigo cai.
+        </p>
+        <div class="heroi__acoes">
+          <a class="btn btn--principal" href="app.html">Começar a jogar</a>
+          <a class="btn" href="#como-funciona">Como funciona</a>
+        </div>
+        <p class="heroi__nota">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M20 6 9 17l-5-5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Sem conta, sem anúncio, sem nuvem. Seus personagens ficam no seu aparelho.
+        </p>
+      </div>
+
+      <div class="previa" aria-hidden="true">
+        <div class="previa__barra"><i></i><i></i><i></i></div>
+        <div class="previa__corpo">
+          <div class="vitais">
+            <div class="vital vital--vida">
+              <span class="vital__nome">Vida</span>
+              <strong class="vital__valor num">13</strong>
+              <span class="vital__max num">de 13</span>
+              <div class="medidor"><i style="width:100%"></i></div>
+            </div>
+            <div class="vital vital--foco">
+              <span class="vital__nome">Foco</span>
+              <strong class="vital__valor num">4</strong>
+              <span class="vital__max num">de 5</span>
+              <div class="medidor"><i style="width:80%"></i></div>
+            </div>
+            <div class="vital vital--investidura">
+              <span class="vital__nome">Investidura</span>
+              <strong class="vital__valor num">2</strong>
+              <span class="vital__max num">de 4</span>
+              <div class="medidor"><i style="width:50%"></i></div>
+            </div>
+          </div>
+          <div class="pericia">
+            <span class="pericia__nome">Atletismo <small>FOR</small></span>
+            <span class="pericia__pontos"><i class="cheio"></i><i class="cheio"></i><i></i><i></i><i></i></span>
+            <span class="pericia__mod num">+5</span>
+          </div>
+          <div class="pericia">
+            <span class="pericia__nome">Intuição <small>CON</small></span>
+            <span class="pericia__pontos"><i class="cheio"></i><i></i><i></i><i></i><i></i></span>
+            <span class="pericia__mod num">+2</span>
+          </div>
+          <div class="pericia">
+            <span class="pericia__nome">Persuasão <small>PRE</small></span>
+            <span class="pericia__pontos"><i></i><i></i><i></i><i></i><i></i></span>
+            <span class="pericia__mod num">+0</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="secao secao--alt" id="o-que-ouvimos">
+    <div class="envolto">
+      <div class="secao__cabeca">
+        <h2>Feito a partir do que a galera reclama</h2>
+        <p>
+          Antes de desenhar qualquer tela, fomos ler o que jogadores dizem das ferramentas
+          que já existem. As três queixas mais repetidas viraram as três regras deste projeto.
+        </p>
+      </div>
+      <div class="criticas">
+        <article class="critica">
+          <blockquote>“Qualquer mudança na ficha demora, e às vezes a página trava carregando.”</blockquote>
+          <cite>Fórum do D&amp;D Beyond</cite>
+          <p class="critica__resposta">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M20 6 9 17l-5-5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <span>Aqui nada vai ao servidor. Cada toque grava no aparelho e a tela responde no mesmo quadro.</span>
+          </p>
+        </article>
+        <article class="critica">
+          <blockquote>“Não dá pra pausar a criação do personagem no meio, nem adicionar opções suas.”</blockquote>
+          <cite>Avaliações do app Cosmere RPG Character Sheet</cite>
+          <p class="critica__resposta">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M20 6 9 17l-5-5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <span>O construtor salva rascunho a cada passo, e todo campo aceita entrada própria — inclusive talento e especialidade de casa.</span>
+          </p>
+        </article>
+        <article class="critica">
+          <blockquote>“Por favor, deem uma opção de tema claro.”</blockquote>
+          <cite>Fórum do Roll20</cite>
+          <p class="critica__resposta">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M20 6 9 17l-5-5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <span>Claro e escuro, os dois pensados de verdade. Começa seguindo o sistema e você troca quando quiser.</span>
+          </p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section class="secao" id="recursos">
+    <div class="envolto">
+      <div class="secao__cabeca">
+        <h2>O que tem dentro</h2>
+        <p>Tudo o que uma sessão pede, sem virar um simulador de planilha.</p>
+      </div>
+      <div class="recursos">
+        <article class="recurso">
+          <div class="recurso__icone"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M5 4h10l4 4v12H5z" stroke-linejoin="round"/><path d="M9 10h6M9 14h6M9 18h4" stroke-linecap="round"/></svg></div>
+          <h3>Ficha que faz a conta</h3>
+          <p>Você mexe nos atributos; defesas, vida, foco, movimento, dado de recuperação e distância dos sentidos se ajustam sozinhos.</p>
+        </article>
+        <article class="recurso">
+          <div class="recurso__icone"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z" stroke-linejoin="round"/><path d="M12 12l8-4.5M12 12v9M12 12L4 7.5" stroke-linecap="round"/></svg></div>
+          <h3>Rolador com dado de trama</h3>
+          <p>Vantagem e desvantagem empilháveis, Oportunidade e Complicação aplicadas na conta, e o dano da arma já somando o modificador certo.</p>
+        </article>
+        <article class="recurso">
+          <div class="recurso__icone"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v18H6.5A2.5 2.5 0 0 0 4 23z" stroke-linejoin="round"/><path d="M9 8h7M9 12h7" stroke-linecap="round"/></svg></div>
+          <h3>Construtor em 8 passos</h3>
+          <p>Conta os 12 pontos, respeita os limites da criação e só oferece talento cujo pré-requisito você cumpre. Pausa e retoma quando quiser.</p>
+        </article>
+        <article class="recurso">
+          <div class="recurso__icone"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4.2-4.2" stroke-linecap="round"/></svg></div>
+          <h3>Regras em dois toques</h3>
+          <p>Busca no texto dos seus próprios livros, com o número da página impressa para você conferir na hora.</p>
+        </article>
+        <article class="recurso">
+          <div class="recurso__icone"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M14.5 3.5l6 6-9 9-6-6z" stroke-linejoin="round"/><path d="M4 20l3-3M17 3l4 4" stroke-linecap="round"/></svg></div>
+          <h3>Combate na ordem certa</h3>
+          <p>Turnos rápidos e lentos na sequência do sistema, vida dos inimigos e controle de reação por rodada.</p>
+        </article>
+        <article class="recurso">
+          <div class="recurso__icone"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M12 2l7 3v6c0 5-3 8.5-7 11-4-2.5-7-6-7-11V5z" stroke-linejoin="round"/><path d="M9.5 12l1.8 1.8 3.5-3.6" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+          <h3>Funciona sem internet</h3>
+          <p>Instala como aplicativo pela própria página. No meio da sessão, sem sinal, continua abrindo.</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section class="secao secao--alt" id="como-funciona">
+    <div class="envolto">
+      <div class="secao__cabeca">
+        <h2>Os livros são seus, e continuam sendo</h2>
+        <p>
+          Este projeto não distribui nada do conteúdo do Cosmere RPG. A ferramenta traz
+          só a mecânica — atributos, perícias, fórmulas, dados. O texto das regras e os
+          talentos saem dos <strong>seus</strong> PDFs, na sua máquina, e nunca entram no repositório.
+        </p>
+      </div>
+      <div class="passos">
+        <div class="passo">
+          <div>
+            <h3>Abra a mesa</h3>
+            <p>Ficha, rolador e combate já funcionam de cara. Não precisa importar nada para jogar.</p>
+          </div>
+        </div>
+        <div class="passo">
+          <div>
+            <h3>Gere seu pacote de dados</h3>
+            <p>Com os PDFs que você comprou, rode <code>python ferramentas/gerar_pacote.py</code>. Ele lê os livros e escreve um arquivo <code>pacote.json</code>.</p>
+          </div>
+        </div>
+        <div class="passo">
+          <div>
+            <h3>Solte o arquivo na mesa</h3>
+            <p>Arraste o <code>pacote.json</code> para dentro do site. Aí a busca de regras e os talentos do construtor acordam.</p>
+          </div>
+        </div>
+        <div class="passo">
+          <div>
+            <h3>Pronto, é seu</h3>
+            <p>O pacote fica guardado no navegador. Nada sobe para lugar nenhum — nem para nós, que não temos servidor.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="secao">
+    <div class="envolto">
+      <div class="chamada">
+        <div>
+          <h2>Sua próxima sessão começa quando?</h2>
+          <p>Dá para deixar o personagem pronto antes de sentar à mesa.</p>
+        </div>
+        <a class="btn btn--ambar" href="app.html">Abrir a mesa</a>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="rodape">
+  <div class="envolto">
+    <div class="rodape__linha">
+      <span>Projeto de fã, sem vínculo com a Brotherwise Games ou a Dragonsteel.</span>
+      <a href="#conteudo">Voltar ao topo</a>
+    </div>
+  </div>
+</footer>
+
+<script src="assets/js/tema.js?v=2"></script>
+</body>
+</html>

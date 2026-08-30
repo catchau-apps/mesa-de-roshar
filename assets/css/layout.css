@@ -1,0 +1,100 @@
+/* =========================================================================
+   Layout: casca do site, navegação e grades
+   ========================================================================= */
+
+.envolto{ width:100%; max-width:var(--largura); margin-inline:auto; padding-inline:clamp(1rem,4vw,2rem) }
+
+/* ---------- cabeçalho ---------- */
+.cabecalho{
+  position:sticky; top:0; z-index:100;
+  background:color-mix(in srgb, var(--papel) 88%, transparent);
+  backdrop-filter:saturate(1.4) blur(12px);
+  border-bottom:1px solid var(--borda);
+}
+.cabecalho__linha{ display:flex; align-items:center; gap:1rem; height:62px }
+
+.marca{ display:flex; align-items:center; gap:.6rem; text-decoration:none; color:inherit; flex:none }
+.marca__glifo{ width:30px; height:30px; flex:none; color:var(--ambar) }
+.marca__texto{ display:flex; flex-direction:column; line-height:1.05 }
+.marca__texto b{ font-family:var(--f-titulo); font-size:1.02rem; font-weight:600; letter-spacing:-.01em }
+.marca__texto span{ font-size:.62rem; text-transform:uppercase; letter-spacing:.16em; color:var(--tinta-3); font-weight:600 }
+
+.cabecalho__acoes{ margin-left:auto; display:flex; align-items:center; gap:.5rem }
+
+/* botão de tema */
+.tema{ width:44px; height:44px; padding:0; border-radius:var(--r-p) }
+.tema svg{ width:19px; height:19px }
+:root:not([data-tema="escuro"]) .tema__lua{ display:none }
+:root[data-tema="escuro"] .tema__sol{ display:none }
+
+/* ---------- navegação do app ---------- */
+.navegacao{ border-bottom:1px solid var(--borda); background:var(--papel) }
+.navegacao__lista{
+  display:flex; gap:.15rem; margin:0; padding:0; list-style:none;
+  overflow-x:auto; scrollbar-width:none;
+}
+.navegacao__lista::-webkit-scrollbar{ display:none }
+.navegacao__botao{
+  display:flex; align-items:center; gap:.5rem;
+  background:none; border:none; border-bottom:2px solid transparent;
+  font:inherit; font-size:.92rem; font-weight:550; color:var(--tinta-3);
+  padding:.85rem .95rem; cursor:pointer; white-space:nowrap;
+  transition:color var(--transicao), border-color var(--transicao);
+}
+.navegacao__botao svg{ width:18px; height:18px; flex:none }
+.navegacao__botao:hover{ color:var(--tinta) }
+.navegacao__botao[aria-selected="true"]{ color:var(--luz); border-bottom-color:var(--luz) }
+
+/* No celular a navegação vai pro rodapé, onde o polegar alcança. */
+@media (max-width:719px){
+  .navegacao{
+    position:fixed; bottom:0; left:0; right:0; z-index:100;
+    border-top:1px solid var(--borda); border-bottom:none;
+    padding-bottom:env(safe-area-inset-bottom);
+    background:color-mix(in srgb, var(--papel) 94%, transparent);
+    backdrop-filter:blur(12px);
+  }
+  .navegacao__lista{ overflow:visible }
+  .navegacao__botao{
+    flex:1; flex-direction:column; gap:.15rem; padding:.5rem .2rem;
+    font-size:.66rem; letter-spacing:.01em; border-bottom:none; border-top:2px solid transparent;
+  }
+  .navegacao__botao[aria-selected="true"]{ border-top-color:var(--luz) }
+  .navegacao__botao svg{ width:21px; height:21px }
+  body{ padding-bottom:72px }
+}
+
+/* ---------- painéis ---------- */
+.principal{ padding-block:1.5rem 3rem }
+.painel[hidden]{ display:none }
+.painel{ animation:surgir 220ms cubic-bezier(.2,.7,.3,1) }
+@keyframes surgir{ from{ opacity:0; transform:translateY(6px) } to{ opacity:1; transform:none } }
+
+.painel__cabeca{ display:flex; align-items:flex-end; gap:1rem; flex-wrap:wrap; margin-bottom:1.25rem }
+.painel__cabeca h2{ margin:0 }
+.painel__cabeca p{ margin:0; color:var(--tinta-3); font-size:.92rem }
+.painel__acoes{ margin-left:auto; display:flex; gap:.5rem; flex-wrap:wrap }
+
+/* ---------- grades ---------- */
+.grade{ display:grid; gap:1rem }
+.grade--2{ grid-template-columns:repeat(auto-fit,minmax(260px,1fr)) }
+.grade--3{ grid-template-columns:repeat(auto-fit,minmax(210px,1fr)) }
+.grade--ficha{ grid-template-columns:1fr; align-items:start }
+@media (min-width:980px){ .grade--ficha{ grid-template-columns:minmax(0,1.05fr) minmax(0,.95fr) } }
+
+.linha{ display:flex; flex-wrap:wrap; gap:.5rem; align-items:center }
+.pilha{ display:grid; gap:.75rem }
+
+/* ---------- rodapé ---------- */
+.rodape{ border-top:1px solid var(--borda); margin-top:3rem; padding-block:2rem 3rem; color:var(--tinta-3); font-size:.86rem }
+.rodape a{ color:var(--tinta-2) }
+.rodape__linha{ display:flex; gap:1.5rem; flex-wrap:wrap; align-items:center }
+
+/* Numa tela estreita o seletor de personagem espremia os botões de ícone
+   até 23 px de largura. O seletor encolhe; os botões, não. */
+.cabecalho__acoes > .btn{ flex:none }
+.cabecalho__acoes > select{ min-width:0; flex:1 1 auto }
+@media (max-width:479px){
+  .cabecalho__acoes > select{ max-width:120px }
+  .marca__texto span{ display:none }
+}

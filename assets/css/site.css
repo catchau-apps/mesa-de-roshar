@@ -1,0 +1,101 @@
+/* =========================================================================
+   Página inicial
+   ========================================================================= */
+
+.heroi{ position:relative; overflow:hidden; padding-block:clamp(3rem,8vw,6rem) }
+.heroi::before{
+  content:""; position:absolute; inset:0; z-index:-1;
+  background:
+    radial-gradient(60% 50% at 15% 0%, color-mix(in srgb,var(--ambar) 14%,transparent), transparent 70%),
+    radial-gradient(50% 45% at 92% 12%, color-mix(in srgb,var(--luz) 15%,transparent), transparent 70%);
+}
+/* textura sutil de pedra, feita só com gradiente para não pesar */
+.heroi::after{
+  content:""; position:absolute; inset:0; z-index:-1; opacity:.5;
+  background-image:repeating-linear-gradient(115deg,
+    transparent 0 22px, color-mix(in srgb,var(--tinta) 2.5%,transparent) 22px 23px);
+  mask-image:linear-gradient(to bottom, #000, transparent 75%);
+}
+.heroi__grade{ display:grid; gap:clamp(2rem,5vw,3.5rem); align-items:center }
+@media (min-width:900px){ .heroi__grade{ grid-template-columns:1.05fr .95fr } }
+
+.heroi__selo{
+  display:inline-flex; align-items:center; gap:.5rem; margin-bottom:1.1rem;
+  font-size:.76rem; font-weight:650; letter-spacing:.06em; text-transform:uppercase;
+  color:var(--ambar); background:var(--ambar-fundo);
+  border:1px solid color-mix(in srgb,var(--ambar) 35%,transparent);
+  padding:.3rem .75rem; border-radius:999px;
+}
+.heroi h1{ margin-bottom:.75rem; text-wrap:balance }
+.heroi h1 em{ font-style:normal; color:var(--ambar) }
+.heroi__texto{ font-size:clamp(1rem,.95rem + .3vw,1.15rem); color:var(--tinta-2); max-width:52ch; margin-bottom:1.75rem }
+.heroi__acoes{ display:flex; gap:.75rem; flex-wrap:wrap; margin-bottom:1.5rem }
+.heroi__acoes .btn{ min-height:50px; padding-inline:1.4rem; font-size:1rem }
+.heroi__nota{ font-size:.84rem; color:var(--tinta-3); display:flex; align-items:center; gap:.5rem }
+.heroi__nota svg{ width:16px; height:16px; color:var(--verde); flex:none }
+
+/* --- prévia da ficha, decorativa --- */
+.previa{
+  background:var(--superficie); border:1px solid var(--borda);
+  border-radius:var(--r-g); box-shadow:var(--sombra-3); overflow:hidden;
+  transform:perspective(1400px) rotateY(-7deg) rotateX(3deg); transform-origin:left center;
+}
+@media (max-width:899px){ .previa{ transform:none } }
+.previa__barra{ display:flex; gap:.4rem; padding:.7rem .9rem; border-bottom:1px solid var(--borda); background:var(--superficie-2) }
+.previa__barra i{ width:10px; height:10px; border-radius:99px; background:var(--borda-forte) }
+.previa__corpo{ padding:1.1rem; display:grid; gap:.9rem }
+
+/* ---------- seções ---------- */
+.secao{ padding-block:clamp(2.5rem,6vw,4.5rem) }
+.secao--alt{ background:var(--papel-2); border-block:1px solid var(--borda) }
+.secao__cabeca{ max-width:60ch; margin-bottom:2rem }
+.secao__cabeca h2{ margin-bottom:.6rem; text-wrap:balance }
+.secao__cabeca p{ color:var(--tinta-2); margin:0 }
+
+.recursos{ display:grid; gap:1.25rem; grid-template-columns:repeat(auto-fit,minmax(255px,1fr)) }
+.recurso{ padding:1.35rem; background:var(--superficie); border:1px solid var(--borda); border-radius:var(--r-m); box-shadow:var(--sombra-1) }
+.recurso__icone{
+  width:42px; height:42px; display:grid; place-items:center; margin-bottom:.9rem;
+  border-radius:var(--r-p); background:var(--luz-fundo); color:var(--luz);
+  border:1px solid color-mix(in srgb,var(--luz) 25%,transparent);
+}
+.recurso__icone svg{ width:21px; height:21px }
+.recurso h3{ font-size:1.05rem; margin-bottom:.4rem }
+.recurso p{ margin:0; font-size:.91rem; color:var(--tinta-2) }
+
+/* ---------- o que a gente ouviu ---------- */
+.criticas{ display:grid; gap:1rem; grid-template-columns:repeat(auto-fit,minmax(290px,1fr)) }
+.critica{
+  padding:1.25rem; border-radius:var(--r-m);
+  background:var(--superficie); border:1px solid var(--borda);
+  border-left:3px solid var(--granada);
+}
+.critica blockquote{ margin:0 0 .85rem; font-family:var(--f-titulo); font-size:1.02rem; color:var(--tinta); line-height:1.45 }
+.critica cite{ display:block; font-size:.76rem; font-style:normal; color:var(--tinta-3); text-transform:uppercase; letter-spacing:.06em; font-weight:650; margin-bottom:.85rem }
+.critica__resposta{ display:flex; gap:.6rem; font-size:.89rem; color:var(--tinta-2); padding-top:.85rem; border-top:1px solid var(--borda) }
+.critica__resposta svg{ width:18px; height:18px; color:var(--verde); flex:none; margin-top:.15rem }
+
+/* ---------- passos ---------- */
+.passos{ counter-reset:passo; display:grid; gap:1.1rem; max-width:70ch }
+.passo{ display:grid; grid-template-columns:auto 1fr; gap:1rem; align-items:start }
+.passo::before{
+  counter-increment:passo; content:counter(passo);
+  width:34px; height:34px; display:grid; place-items:center; border-radius:999px;
+  background:var(--ambar-fundo); color:var(--ambar); font-weight:700; font-size:.95rem;
+  border:1px solid color-mix(in srgb,var(--ambar) 35%,transparent);
+}
+.passo h3{ font-size:1.02rem; margin-bottom:.2rem }
+.passo p{ margin:0; font-size:.91rem; color:var(--tinta-2) }
+.passo code{
+  font-family:var(--f-num); font-size:.85em; background:var(--superficie-2);
+  border:1px solid var(--borda); border-radius:6px; padding:.1em .4em;
+}
+
+.chamada{
+  display:flex; gap:1.5rem; flex-wrap:wrap; align-items:center; justify-content:space-between;
+  padding:clamp(1.5rem,4vw,2.5rem); border-radius:var(--r-g);
+  background:linear-gradient(135deg, var(--luz-fundo), var(--ambar-fundo));
+  border:1px solid var(--borda);
+}
+.chamada h2{ margin-bottom:.3rem }
+.chamada p{ margin:0; color:var(--tinta-2) }

@@ -1,0 +1,12 @@
+# O pacote de dados sai dos livros do próprio jogador e NUNCA entra no repositório.
+pacote.json
+dados/
+*.pdf
+
+# lixo de sistema e editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+__pycache__/
+*.pyc

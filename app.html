@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-tema="claro">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Mesa de Roshar</title>
+<meta name="description" content="Ficha, rolador, regras e combate do Cosmere RPG, no seu navegador.">
+<meta name="theme-color" content="#f6f2ea" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#17151a" media="(prefers-color-scheme: dark)">
+<link rel="icon" href="assets/icone.svg" type="image/svg+xml">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,500;0,600;1,500&amp;family=Inter:wght@400;500;600;700&amp;display=swap">
+<link rel="stylesheet" href="assets/css/base.css?v=2">
+<link rel="stylesheet" href="assets/css/componentes.css?v=2">
+<link rel="stylesheet" href="assets/css/layout.css?v=2">
+<link rel="stylesheet" href="assets/css/ficha.css?v=2">
+<script>
+  (function () {
+    try {
+      var salvo = localStorage.getItem('mesa-roshar:tema');
+      var escuro = salvo ? salvo === 'escuro'
+                         : matchMedia('(prefers-color-scheme: dark)').matches;
+      document.documentElement.dataset.tema = escuro ? 'escuro' : 'claro';
+    } catch (e) {}
+  })();
+</script>
+</head>
+<body>
+<a class="pular-para-conteudo" href="#conteudo">Pular para o conteúdo</a>
+
+<header class="cabecalho">
+  <div class="envolto cabecalho__linha">
+    <a class="marca" href="./">
+      <svg class="marca__glifo" viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
+        <path d="M16 2 27 9v14L16 30 5 23V9z" stroke-linejoin="round"/>
+        <path d="M16 9v14M16 16l7-4M16 16l-7-4" stroke-linecap="round"/>
+      </svg>
+      <span class="marca__texto">
+        <b>Mesa de Roshar</b>
+        <span>Cosmere RPG</span>
+      </span>
+    </a>
+
+    <div class="cabecalho__acoes">
+      <label class="so-leitor-de-tela" for="seletor-ficha">Personagem ativo</label>
+      <select id="seletor-ficha" style="max-width:190px;min-height:40px;padding-block:.35rem"></select>
+      <button class="btn btn--fantasma tema" type="button" data-tema-alternar aria-label="Alternar tema claro e escuro">
+        <svg class="tema__sol" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="4.2"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.5 1.5M17.6 17.6l1.5 1.5M19.1 4.9l-1.5 1.5M6.4 17.6l-1.5 1.5" stroke-linecap="round"/></svg>
+        <svg class="tema__lua" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5z" stroke-linejoin="round"/></svg>
+      </button>
+      <button class="btn btn--fantasma" type="button" data-acao="menu" aria-label="Abrir menu" style="width:44px;padding:0">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" style="width:19px;height:19px">
+          <circle cx="12" cy="5" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="12" cy="19" r="1.4"/>
+        </svg>
+      </button>
+    </div>
+  </div>
+</header>
+
+<nav class="navegacao" id="navegacao" aria-label="Seções da mesa">
+  <ul class="navegacao__lista envolto" role="tablist">
+    <li role="presentation">
+      <button class="navegacao__botao" type="button" role="tab" data-aba="ficha" aria-selected="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M5 4h10l4 4v12H5z" stroke-linejoin="round"/><path d="M9 10h6M9 14h6M9 18h4" stroke-linecap="round"/></svg>
+        Ficha
+      </button>
+    </li>
+    <li role="presentation">
+      <button class="navegacao__botao" type="button" role="tab" data-aba="dados" aria-selected="false" tabindex="-1">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z" stroke-linejoin="round"/><path d="M12 12l8-4.5M12 12v9M12 12L4 7.5" stroke-linecap="round"/></svg>
+        Rolar
+      </button>
+    </li>
+    <li role="presentation">
+      <button class="navegacao__botao" type="button" role="tab" data-aba="regras" aria-selected="false" tabindex="-1">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v18H6.5A2.5 2.5 0 0 0 4 23z" stroke-linejoin="round"/><path d="M9 8h7M9 12h7" stroke-linecap="round"/></svg>
+        Regras
+      </button>
+    </li>
+    <li role="presentation">
+      <button class="navegacao__botao" type="button" role="tab" data-aba="combate" aria-selected="false" tabindex="-1">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M14.5 3.5l6 6-9 9-6-6z" stroke-linejoin="round"/><path d="M4 20l3-3M17 3l4 4" stroke-linecap="round"/></svg>
+        Combate
+      </button>
+    </li>
+    <li role="presentation">
+      <button class="navegacao__botao" type="button" role="tab" data-aba="referencia" aria-selected="false" tabindex="-1">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 16.5v-4.2M12 8.2h.01" stroke-linecap="round"/></svg>
+        Ajuda
+      </button>
+    </li>
+  </ul>
+</nav>
+
+<main class="principal envolto" id="conteudo">
+  <section class="painel" data-painel="ficha" role="tabpanel" tabindex="-1"></section>
+  <section class="painel" data-painel="dados" role="tabpanel" tabindex="-1" hidden></section>
+  <section class="painel" data-painel="regras" role="tabpanel" tabindex="-1" hidden></section>
+  <section class="painel" data-painel="combate" role="tabpanel" tabindex="-1" hidden></section>
+  <section class="painel" data-painel="referencia" role="tabpanel" tabindex="-1" hidden></section>
+</main>
+
+<!-- ---------------------------------------------------- construtor -->
+<div class="construtor" id="construtor" hidden role="dialog" aria-modal="true" aria-label="Criar personagem">
+  <div class="construtor__topo">
+    <div class="envolto">
+      <div class="construtor__linha">
+        <button class="btn btn--fantasma" type="button" data-fechar aria-label="Fechar o construtor"
+          style="width:40px;padding:0;min-height:40px">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" style="width:18px;height:18px">
+            <path d="M6 6l12 12M18 6L6 18" stroke-linecap="round"/></svg>
+        </button>
+        <h2 data-titulo>Criar personagem</h2>
+        <span class="construtor__contagem" data-contagem></span>
+      </div>
+      <div class="trilho" data-trilho aria-hidden="true"></div>
+    </div>
+  </div>
+  <div class="construtor__corpo" data-corpo></div>
+  <div class="construtor__pe">
+    <div class="envolto">
+      <button class="btn" type="button" data-voltar>Voltar</button>
+      <button class="btn btn--principal" type="button" data-avancar>Continuar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ---------------------------------------------------- menu -->
+<dialog id="menu">
+  <div class="dialogo__cabeca"><h2>Menu</h2></div>
+  <div class="dialogo__corpo">
+    <div class="pilha">
+      <button class="btn btn--principal" data-acao="construtor">Criar personagem (passo a passo)</button>
+      <button class="btn btn--ambar" id="menu-rascunho" data-acao="retomar" hidden>Retomar criação pausada</button>
+      <button class="btn" data-acao="ficha-branca">Ficha em branco</button>
+      <button class="btn" data-acao="duplicar">Duplicar ficha atual</button>
+      <hr style="border:none;border-top:1px solid var(--borda);margin:.25rem 0">
+      <button class="btn" data-acao="exportar">Exportar tudo (backup)</button>
+      <button class="btn" data-acao="importar">Importar backup</button>
+      <button class="btn btn--perigo" data-acao="excluir">Excluir ficha atual</button>
+    </div>
+    <input type="file" id="arquivo-backup" accept=".json,application/json" hidden>
+    <p class="campo__dica" style="margin-top:1rem">
+      Tudo fica guardado neste aparelho. Faça um backup de vez em quando —
+      e outro antes de limpar os dados do navegador.
+    </p>
+  </div>
+  <div class="dialogo__pe">
+    <button class="btn" type="button" data-acao="fechar-menu">Fechar</button>
+  </div>
+</dialog>
+
+<div class="recado" id="recado" role="status" aria-live="polite" data-visivel="false"></div>
+
+<script src="assets/js/tema.js?v=2"></script>
+<script type="module" src="assets/js/app.js?v=2"></script>
+</body>
+</html>

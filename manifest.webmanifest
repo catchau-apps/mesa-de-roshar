@@ -1,0 +1,15 @@
+{
+  "name": "Mesa de Roshar — Cosmere RPG",
+  "short_name": "Mesa de Roshar",
+  "description": "Ficha, construtor, rolador e regras do Cosmere RPG.",
+  "start_url": "./app.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "lang": "pt-BR",
+  "background_color": "#f6f2ea",
+  "theme_color": "#a8681a",
+  "icons": [
+    { "src": "assets/icone.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}

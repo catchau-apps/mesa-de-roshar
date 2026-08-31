@@ -14,17 +14,20 @@ export const id = () =>
 export function fichaNova(nome = 'Novo personagem') {
   const f = {
     id: id(),
-    nome,
+    nome, jogador: '',
     ancestralidade: '', cultura: '', trilhas: '',
     nivel: 1, radiante: false,
     atributos: { for: 0, vel: 0, int: 0, von: 0, con: 0, pre: 0 },
     pericias: {}, fluxos: {},
+    periciasProprias: [],            // a linha em branco de cada coluna da ficha
     vida: 10, ajusteVida: 0,
     foco: 2, ajusteFoco: 0,
     investidura: 0, investiduraMaxima: 0,
     deflexao: 0,
     condicoes: [], especialidades: [], talentos: [], armas: [],
-    equipamento: '', proposito: '', obstaculo: '', objetivos: '',
+    equipamento: '', marcos: '', aparencia: '',
+    proposito: '', obstaculo: '',
+    objetivos: [],                   // { texto, progresso: 0..3 }
     conexoes: '', ideais: '', anotacoes: '',
   };
   PERICIAS.forEach((p) => { f.pericias[p.nome] = 0; });
@@ -58,6 +61,14 @@ function carregar() {
       f.pericias ??= {}; f.fluxos ??= {};
       PERICIAS.forEach((p) => { f.pericias[p.nome] ??= 0; });
       FLUXOS.forEach((p) => { f.fluxos[p.nome] ??= 0; });
+      f.periciasProprias ??= [];
+      f.jogador ??= ''; f.marcos ??= ''; f.aparencia ??= '';
+      // objetivos viraram lista com progresso; texto antigo entra como linhas
+      if (typeof f.objetivos === 'string') {
+        f.objetivos = f.objetivos.split(/\r?\n/).map((t) => t.trim()).filter(Boolean)
+          .map((texto) => ({ texto, progresso: 0 }));
+      }
+      f.objetivos ??= [];
     });
     return dados;
   } catch (e) {

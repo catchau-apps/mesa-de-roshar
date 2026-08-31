@@ -1,16 +1,20 @@
 /* =========================================================================
-   painel-ficha.js — a ficha de personagem
+   painel-ficha.js — a ficha, no layout da ficha oficial
+
+   A ordem e o agrupamento seguem a ficha impressa da edição brasileira:
+   cabeçalho, faixa dos três reinos com as defesas em escudo, os recursos,
+   as dezoito perícias em três colunas com a linha em branco no fim de cada
+   uma, os derivados, e as caixas grandes. O verso vem em seguida.
    ========================================================================= */
 
 import {
-  ATRIBUTOS, PERICIAS, FLUXOS, REINOS, CONDICOES,
+  ATRIBUTOS, PERICIAS, FLUXOS, CONDICOES,
   vidaMaxima, focoMaximo, defesaFisica, defesaCognitiva, defesaEspiritual,
-  modificador, periciasDe, movimento, dadoRecuperacao, sentidos,
-  patamar, gradMaxima,
+  modificador, movimento, dadoRecuperacao, sentidos, levantamento, patamar,
 } from './sistema.js';
-import { ST, fichaAtual, salvar, descansoLongo } from './estado.js';
+import { fichaAtual, salvar, descansoLongo } from './estado.js';
 import { rolarExpressao, sinal } from './dados.js';
-import { esc, pontos, passo, recado, tremer, ligarAcoes, ligarEntradas, redesenharPreservandoFoco } from './ui.js';
+import { esc, recado, tremer, ligarAcoes, ligarEntradas, redesenharPreservandoFoco } from './ui.js';
 
 let raiz;
 let aoRolarPericia = () => {};
@@ -23,15 +27,30 @@ export function iniciarFicha(elemento, { rolarPericia, atacar }) {
   ligar();
 }
 
+/* Cada reino ocupa uma coluna da faixa: dois atributos com a defesa no meio. */
+const REINOS_FICHA = [
+  { id: 'fisico',     nome: 'Físico',     esquerda: 'for', direita: 'vel', defesa: defesaFisica },
+  { id: 'cognitivo',  nome: 'Cognitivo',  esquerda: 'int', direita: 'von', defesa: defesaCognitiva },
+  { id: 'espiritual', nome: 'Espiritual', esquerda: 'con', direita: 'pre', defesa: defesaEspiritual },
+];
+
+const moldura = (conteudo, classe = '') =>
+  `<div class="moldura ${classe}"><div>${conteudo}</div></div>`;
+
+const campo = (rotulo, nome, valor, extras = '') => moldura(`
+  <span class="rotulo">${rotulo}</span>
+  <input data-campo="${nome}" value="${esc(valor)}" aria-label="${rotulo}" ${extras}>`);
+
 /* ---------------------------------------------------------------- desenho */
 export function desenharFicha() {
   const f = fichaAtual();
   if (!f) return;
+
   redesenharPreservandoFoco(raiz, `
     <div class="painel__cabeca">
       <div>
-        <h2>${esc(f.nome) || 'Sem nome'}</h2>
-        <p>${esc([f.ancestralidade, f.cultura, f.trilhas].filter(Boolean).join(' · ')) || 'Complete a identidade abaixo'}</p>
+        <h2>Ficha de personagem</h2>
+        <p>Nível ${f.nivel} · patamar ${patamar(f)}${f.trilhas ? ' · ' + esc(f.trilhas) : ''}</p>
       </div>
       <div class="painel__acoes">
         <button class="btn btn--pequeno" data-acao="recuperar">Recuperar (${dadoRecuperacao(f.atributos.von || 0)})</button>
@@ -39,297 +58,361 @@ export function desenharFicha() {
       </div>
     </div>
 
-    <div class="grade grade--ficha">
-      <div class="pilha">
-        ${cartaoVitais(f)}
-        ${cartaoAtributos(f)}
-        ${cartaoCondicoes(f)}
-      </div>
-      <div class="pilha">
-        ${cartaoPericias(f)}
-        ${cartaoArmas(f)}
-        ${cartaoListas(f)}
-        ${cartaoIdentidade(f)}
-        ${cartaoHistoria(f)}
-      </div>
+    <div class="folha">
+      ${cabecalho(f)}
+      ${faixaAtributos(f)}
+      ${recursos(f)}
+      ${pericias(f)}
+      ${derivados(f)}
+      ${condicoesEEspecialidades(f)}
+      ${armasETalentos(f)}
+
+      <p class="folha__verso">verso</p>
+      ${verso(f)}
     </div>`);
 }
 
-function cartaoVitais(f) {
-  const vital = (classe, chave, nome, atual, maximo) => {
-    const pct = maximo > 0 ? Math.max(0, Math.min(100, (atual / maximo) * 100)) : 0;
-    return `
-      <div class="vital vital--${classe}">
-        <span class="vital__nome">${nome}</span>
-        <strong class="vital__valor num">${atual}</strong>
-        <span class="vital__max num">de ${maximo}</span>
-        <div class="medidor"><i style="width:${pct}%"></i></div>
-        <div class="vital__botoes">
-          ${passo('vital', { vital: chave, delta: -1 }, '−', `Diminuir ${nome}`)}
-          ${passo('vital', { vital: chave, delta: 1 }, '+', `Aumentar ${nome}`)}
+function cabecalho(f) {
+  return `
+    <div class="folha__topo">
+      <div class="folha__pilha">
+        ${moldura(`
+          <div class="folha__marca">
+            <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+              <path d="M16 2 27 9v14L16 30 5 23V9z" stroke-linejoin="round"/>
+              <path d="M16 9v14M16 16l7-4M16 16l-7-4" stroke-linecap="round"/>
+            </svg>
+            <span><b>COSMERE</b><span>o jogo de rpg</span></span>
+          </div>`)}
+        ${campo('Nome do jogador', 'jogador', f.jogador)}
+      </div>
+
+      <div class="folha__identidade">
+        ${campo('Nome do personagem', 'nome', f.nome)}
+        ${campo('Nível', 'nivel', f.nivel, 'type="number" min="1" max="30"')}
+        ${campo('Trilhas', 'trilhas', f.trilhas)}
+        ${campo('Ancestralidade', 'ancestralidade', f.ancestralidade)}
+      </div>
+    </div>`;
+}
+
+function faixaAtributos(f) {
+  const atributo = (chave) => {
+    const a = ATRIBUTOS.find((x) => x.id === chave);
+    const v = f.atributos[chave] || 0;
+    return moldura(`
+      <div class="atr-caixa">
+        <span class="rotulo">${a.nome}</span>
+        <strong class="atr-caixa__valor num">${v}</strong>
+        <div class="atr-caixa__passos">
+          <button type="button" data-acao="atributo" data-atributo="${chave}" data-delta="-1"
+            aria-label="Diminuir ${a.nome}" ${v <= 0 ? 'disabled' : ''}>−</button>
+          <button type="button" data-acao="atributo" data-atributo="${chave}" data-delta="1"
+            aria-label="Aumentar ${a.nome}" ${v >= 10 ? 'disabled' : ''}>+</button>
         </div>
-      </div>`;
+      </div>`);
   };
 
   return `
-    <section class="cartao">
-      <div class="cartao__cabeca"><h3>Recursos</h3><span class="cartao__fonte">p. 23</span></div>
-      <div class="cartao__corpo">
-        <div class="vitais">
-          ${vital('vida', 'vida', 'Vida', f.vida, vidaMaxima(f))}
-          ${vital('foco', 'foco', 'Foco', f.foco, focoMaximo(f))}
-          ${f.radiante
-            ? vital('investidura', 'investidura', 'Investidura', f.investidura, f.investiduraMaxima || 0)
-            : '<div class="vital vital--desligado">Investidura<br>só para Radiantes</div>'}
-        </div>
-        <div class="grade grade--3" style="margin-top:1rem">
-          <label class="campo">
-            <span class="campo__rotulo">Ajuste de vida</span>
-            <input type="number" data-campo="ajusteVida" value="${f.ajusteVida || 0}">
-          </label>
-          <label class="campo">
-            <span class="campo__rotulo">Ajuste de foco</span>
-            <input type="number" data-campo="ajusteFoco" value="${f.ajusteFoco || 0}">
-          </label>
-          <label class="campo">
-            <span class="campo__rotulo">${f.radiante ? 'Investidura máx.' : 'Deflexão'}</span>
-            <input type="number" data-campo="${f.radiante ? 'investiduraMaxima' : 'deflexao'}"
-                   value="${f.radiante ? (f.investiduraMaxima || 0) : (f.deflexao || 0)}">
-          </label>
-        </div>
-        <p class="campo__dica">
-          Vida = 10 + FOR + ajuste · Foco = 2 + VON + ajuste.
-          Os ganhos de nível entram no ajuste: +5 nos níveis 2 a 5, +4+FOR no 6, +4 do 7 ao 10.
-        </p>
-      </div>
-    </section>`;
+    <div class="faixa-atributos">
+      ${REINOS_FICHA.map((r) => `
+        <div class="reino" data-reino="${r.id}">
+          <h3 class="reino__nome">${r.nome}</h3>
+          <div class="reino__linha">
+            ${atributo(r.esquerda)}
+            <div class="escudo"><div>
+              <span class="rotulo">Defesa</span>
+              <strong class="escudo__valor num">${r.defesa(f)}</strong>
+            </div></div>
+            ${atributo(r.direita)}
+          </div>
+        </div>`).join('')}
+    </div>`;
 }
 
-function cartaoAtributos(f) {
-  return `
-    <section class="cartao">
-      <div class="cartao__cabeca"><h3>Atributos</h3><span class="cartao__fonte">p. 47–51</span></div>
-      <div class="cartao__corpo">
-        <div class="atributos">
-          ${ATRIBUTOS.map((a) => `
-            <div class="atributo" data-reino="${a.reino}">
-              <span class="atributo__nome">${a.sigla}</span>
-              <strong class="atributo__valor num">${f.atributos[a.id] || 0}</strong>
-              <div class="atributo__botoes">
-                ${passo('atributo', { atributo: a.id, delta: -1 }, '−', `Diminuir ${a.nome}`, (f.atributos[a.id] || 0) <= 0)}
-                ${passo('atributo', { atributo: a.id, delta: 1 }, '+', `Aumentar ${a.nome}`, (f.atributos[a.id] || 0) >= 10)}
-              </div>
-            </div>`).join('')}
-        </div>
-
-        <div class="defesas" style="margin-top:1rem">
-          <div class="defesa" data-reino="fisico">
-            <span class="defesa__nome">Def. Física</span><strong class="defesa__valor num">${defesaFisica(f)}</strong>
+function recursos(f) {
+  const par = (classe, chave, rotuloMax, maximo) => `
+    <div class="recurso-folha recurso-folha--${classe}">
+      ${moldura(`
+        <div class="recurso-folha__par">
+          <div class="recurso-folha__lado">
+            <span class="rotulo">${rotuloMax}</span>
+            <strong class="recurso-folha__valor num">${maximo}</strong>
           </div>
-          <div class="defesa" data-reino="cognitivo">
-            <span class="defesa__nome">Def. Cognitiva</span><strong class="defesa__valor num">${defesaCognitiva(f)}</strong>
+          <div class="recurso-folha__lado">
+            <span class="rotulo rotulo--fraco">Atual</span>
+            <strong class="recurso-folha__valor num">${f[chave]}</strong>
+            <div class="recurso-folha__passos">
+              <button type="button" data-acao="vital" data-vital="${chave}" data-delta="-1"
+                aria-label="Diminuir ${rotuloMax}">−</button>
+              <button type="button" data-acao="vital" data-vital="${chave}" data-delta="1"
+                aria-label="Aumentar ${rotuloMax}">+</button>
+            </div>
           </div>
-          <div class="defesa" data-reino="espiritual">
-            <span class="defesa__nome">Def. Espiritual</span><strong class="defesa__valor num">${defesaEspiritual(f)}</strong>
-          </div>
-        </div>
-
-        <div class="derivados" style="margin-top:.7rem">
-          <div class="derivado"><span class="derivado__nome">Movimento</span><span class="derivado__valor">${movimento(f.atributos.vel || 0)}</span></div>
-          <div class="derivado"><span class="derivado__nome">Recuperação</span><span class="derivado__valor">${dadoRecuperacao(f.atributos.von || 0)}</span></div>
-          <div class="derivado"><span class="derivado__nome">Sentidos</span><span class="derivado__valor">${sentidos(f.atributos.con || 0)}</span></div>
-          <div class="derivado"><span class="derivado__nome">Deflexão</span><span class="derivado__valor">${f.deflexao || 0}</span></div>
-        </div>
-      </div>
-    </section>`;
-}
-
-function cartaoCondicoes(f) {
-  return `
-    <section class="cartao">
-      <div class="cartao__cabeca"><h3>Condições</h3><span class="cartao__fonte">p. 293–295</span></div>
-      <div class="cartao__corpo">
-        <div class="linha">
-          ${CONDICOES.map(([nome, efeito]) => {
-            const ativa = f.condicoes.includes(nome);
-            return `<button type="button" class="etiqueta alternavel ${ativa ? 'etiqueta--granada' : ''}"
-              data-acao="condicao" data-condicao="${esc(nome)}"
-              aria-pressed="${ativa}" title="${esc(efeito)}">${esc(nome)}</button>`;
-          }).join('')}
-        </div>
-      </div>
-    </section>`;
-}
-
-function cartaoPericias(f) {
-  const grupo = (reino, lista) => `
-    <div class="grupo-pericias" data-reino="${reino}">
-      <h4 class="grupo-pericias__titulo">${REINOS[reino].nome}</h4>
-      ${lista.map((p) => {
-        const grad = reino === 'fluxo' ? (f.fluxos[p.nome] || 0) : (f.pericias[p.nome] || 0);
-        const sigla = ATRIBUTOS.find((a) => a.id === p.atributo).sigla;
-        return `
-          <div class="pericia">
-            <span class="pericia__nome">${esc(p.nome)} <small>${sigla}</small></span>
-            <span class="pericia__pontos" aria-hidden="true">${pontos(grad)}</span>
-            <span class="pericia__passos">
-              ${passo('graduacao', { pericia: p.nome, tipo: reino === 'fluxo' ? 'fluxos' : 'pericias', delta: -1 }, '−', `Diminuir ${p.nome}`, grad <= 0)}
-              ${passo('graduacao', { pericia: p.nome, tipo: reino === 'fluxo' ? 'fluxos' : 'pericias', delta: 1 }, '+', `Aumentar ${p.nome}`, grad >= 5)}
-            </span>
-            <button type="button" class="pericia__mod num" data-acao="rolar-pericia" data-pericia="${esc(p.nome)}"
-              aria-label="Rolar ${esc(p.nome)}">${sinal(modificador(f, p))}</button>
-          </div>`;
-      }).join('')}
+        </div>`)}
     </div>`;
 
   return `
-    <section class="cartao">
-      <div class="cartao__cabeca">
-        <h3>Perícias</h3>
-        <span class="cartao__fonte">graduação máx. ${gradMaxima(f)} no patamar ${patamar(f)}</span>
-      </div>
-      <div class="cartao__corpo">
-        ${grupo('fisico', PERICIAS.filter((p) => p.reino === 'fisico'))}
-        ${grupo('cognitivo', PERICIAS.filter((p) => p.reino === 'cognitivo'))}
-        ${grupo('espiritual', PERICIAS.filter((p) => p.reino === 'espiritual'))}
-        ${f.radiante ? grupo('fluxo', FLUXOS) : ''}
-      </div>
-    </section>`;
-}
-
-function cartaoArmas(f) {
-  const opcoes = periciasDe(f);
-  return `
-    <section class="cartao">
-      <div class="cartao__cabeca"><h3>Armas</h3><span class="cartao__fonte">dano + modificador da perícia</span></div>
-      <div class="cartao__corpo">
-        ${f.armas.length ? f.armas.map((a, i) => `
-          <div class="cartao" style="margin-bottom:.6rem">
-            <div class="cartao__corpo">
-              <div class="grade grade--2">
-                <label class="campo" style="grid-column:1/-1">
-                  <span class="campo__rotulo">Nome</span>
-                  <input data-campo="arma:${i}:nome" value="${esc(a.nome)}">
-                </label>
-                <label class="campo">
-                  <span class="campo__rotulo">Perícia</span>
-                  <select data-campo="arma:${i}:pericia">
-                    ${opcoes.map((p) => `<option ${p.nome === a.pericia ? 'selected' : ''}>${esc(p.nome)}</option>`).join('')}
-                  </select>
-                </label>
-                <label class="campo">
-                  <span class="campo__rotulo">Dano</span>
-                  <input data-campo="arma:${i}:dano" value="${esc(a.dano)}" placeholder="1d8">
-                </label>
-                <label class="campo">
-                  <span class="campo__rotulo">Tipo</span>
-                  <input data-campo="arma:${i}:tipo" value="${esc(a.tipo)}" placeholder="cortante">
-                </label>
-                <label class="campo">
-                  <span class="campo__rotulo">Alcance</span>
-                  <input data-campo="arma:${i}:alcance" value="${esc(a.alcance)}" placeholder="corpo a corpo">
-                </label>
-              </div>
-              <div class="linha" style="margin-top:.75rem">
-                <button class="btn btn--pequeno btn--principal" data-acao="atacar" data-arma="${i}">Atacar</button>
-                <button class="btn btn--pequeno" data-acao="dano" data-arma="${i}">Só o dano</button>
-                <button class="btn btn--pequeno btn--perigo" data-acao="remover-arma" data-arma="${i}"
-                  style="margin-left:auto">Excluir</button>
+    <div class="recursos-folha">
+      <div class="recurso-folha recurso-folha--vida">
+        ${moldura(`
+          <div class="recurso-folha__par">
+            <div class="recurso-folha__lado">
+              <span class="rotulo">Vida<br><span class="rotulo--fraco">máxima</span></span>
+              <strong class="recurso-folha__valor num">${vidaMaxima(f)}</strong>
+            </div>
+            <div class="recurso-folha__lado">
+              <span class="rotulo rotulo--fraco">Atual</span>
+              <strong class="recurso-folha__valor num">${f.vida}</strong>
+              <div class="recurso-folha__passos">
+                <button type="button" data-acao="vital" data-vital="vida" data-delta="-1" aria-label="Diminuir vida">−</button>
+                <button type="button" data-acao="vital" data-vital="vida" data-delta="1" aria-label="Aumentar vida">+</button>
               </div>
             </div>
-          </div>`).join('')
-        : '<p class="campo__dica" style="margin:0 0 .75rem">Nenhuma arma cadastrada ainda.</p>'}
-        <button class="btn btn--pequeno" data-acao="nova-arma">+ Adicionar arma</button>
+          </div>`)}
+        <div class="escudo escudo--deflexao"><div>
+          <span class="rotulo">Deflexão</span>
+          <strong class="escudo__valor num">${f.deflexao || 0}</strong>
+        </div></div>
       </div>
-    </section>`;
+
+      ${par('foco', 'foco', 'Foco máximo', focoMaximo(f))}
+
+      ${f.radiante
+        ? par('investidura', 'investidura', 'Investidura máx.', f.investiduraMaxima || 0)
+        : `<div class="recurso-folha recurso-folha--investidura">
+             ${moldura('<div class="recurso-folha--desligado">Investidura<br>só para Radiantes</div>')}
+           </div>`}
+    </div>`;
 }
 
-function listaEditavel(titulo, campo, itens, marcador) {
+function pericias(f) {
+  const coluna = (reino) => {
+    const daCasa = PERICIAS.filter((p) => p.reino === reino);
+    const fluxos = f.radiante ? FLUXOS.filter((p) => atributoDoReino(p.atributo) === reino) : [];
+    const proprias = f.periciasProprias
+      .map((p, i) => ({ ...p, indice: i }))
+      .filter((p) => atributoDoReino(p.atributo) === reino);
+
+    return `<div>
+      ${daCasa.map((p) => linhaPericia(f, p)).join('')}
+      ${fluxos.map((p) => linhaPericia(f, p)).join('')}
+      ${proprias.map((p) => linhaPropria(f, p)).join('')}
+      <button type="button" class="botao-propria" data-acao="nova-propria" data-reino="${reino}">
+        + perícia própria
+      </button>
+    </div>`;
+  };
+
   return `
-    <section class="cartao">
-      <div class="cartao__cabeca"><h3>${titulo}</h3></div>
-      <div class="cartao__corpo">
-        <div class="linha">
-          ${itens.length ? itens.map((t, i) => `
-            <span class="etiqueta">${esc(t)}
-              <button type="button" data-acao="remover-item" data-lista="${campo}" data-indice="${i}"
-                aria-label="Remover ${esc(t)}" style="background:none;border:none;cursor:pointer;color:inherit;padding:0 0 0 .2em">×</button>
-            </span>`).join('')
-          : `<p class="campo__dica" style="margin:0">Nada aqui ainda.</p>`}
-        </div>
-        <div class="linha" style="margin-top:.75rem">
-          <input data-novo="${campo}" placeholder="${esc(marcador)}" style="flex:1;min-width:160px">
-          <button class="btn btn--pequeno" data-acao="adicionar-item" data-lista="${campo}">Adicionar</button>
-        </div>
-      </div>
-    </section>`;
+    <div class="pericias-folha">
+      ${coluna('fisico')}
+      ${coluna('cognitivo')}
+      ${coluna('espiritual')}
+    </div>`;
 }
 
-const cartaoListas = (f) => `
-  ${listaEditavel('Talentos', 'talentos', f.talentos, 'Nome do talento')}
-  ${listaEditavel('Especialidades', 'especialidades', f.especialidades, 'Ex.: Espada longa, Alethiano')}`;
-
-function cartaoIdentidade(f) {
-  return `
-    <section class="cartao">
-      <div class="cartao__cabeca"><h3>Identidade</h3></div>
-      <div class="cartao__corpo">
-        <div class="grade grade--2">
-          <label class="campo" style="grid-column:1/-1">
-            <span class="campo__rotulo">Nome</span>
-            <input data-campo="nome" value="${esc(f.nome)}">
-          </label>
-          <label class="campo">
-            <span class="campo__rotulo">Nível</span>
-            <input type="number" min="1" max="30" data-campo="nivel" value="${f.nivel}">
-          </label>
-          <label class="campo">
-            <span class="campo__rotulo">Patamar</span>
-            <input value="${patamar(f)}" disabled>
-          </label>
-          <label class="campo">
-            <span class="campo__rotulo">Ancestralidade</span>
-            <input data-campo="ancestralidade" value="${esc(f.ancestralidade)}" placeholder="humano, cantor…">
-          </label>
-          <label class="campo">
-            <span class="campo__rotulo">Cultura</span>
-            <input data-campo="cultura" value="${esc(f.cultura)}" placeholder="alethiana, thaylena…">
-          </label>
-          <label class="campo" style="grid-column:1/-1">
-            <span class="campo__rotulo">Trilhas</span>
-            <input data-campo="trilhas" value="${esc(f.trilhas)}" placeholder="Guerreiro, Alternauta…">
-          </label>
-        </div>
-        <label class="linha" style="margin-top:.85rem;cursor:pointer;gap:.6rem">
-          <input type="checkbox" data-campo="radiante" ${f.radiante ? 'checked' : ''}
-                 style="width:18px;height:18px;min-height:auto;accent-color:var(--luz)">
-          <span>Cavaleiro Radiante <span class="campo__dica" style="display:inline">(mostra Investidura e as perícias de fluxo)</span></span>
-        </label>
-      </div>
-    </section>`;
+/* Cada perícia de fluxo herda o reino do atributo que ela usa, para cair na
+   mesma coluna da ficha em que o jogador já procura por ele. */
+function atributoDoReino(idAtributo) {
+  return ATRIBUTOS.find((a) => a.id === idAtributo)?.reino || 'fisico';
 }
 
-function cartaoHistoria(f) {
+function circulos(nome, tipo, valor) {
+  return Array.from({ length: 5 }, (_, i) => `
+    <button type="button" data-acao="graduacao" data-pericia="${esc(nome)}" data-tipo="${tipo}"
+      data-nivel="${i + 1}" aria-pressed="${i < valor}"
+      aria-label="${esc(nome)} com ${i + 1} graduaç${i ? 'ões' : 'ão'}"></button>`).join('');
+}
+
+function linhaPericia(f, p) {
+  const tipo = p.reino === 'fluxo' ? 'fluxos' : 'pericias';
+  const grad = tipo === 'fluxos' ? (f.fluxos[p.nome] || 0) : (f.pericias[p.nome] || 0);
+  const sigla = ATRIBUTOS.find((a) => a.id === p.atributo).sigla;
   return `
-    <section class="cartao">
-      <div class="cartao__cabeca"><h3>História</h3><span class="cartao__fonte">p. 21</span></div>
-      <div class="cartao__corpo pilha">
-        <label class="campo"><span class="campo__rotulo">Propósito</span>
-          <input data-campo="proposito" value="${esc(f.proposito)}"></label>
-        <label class="campo"><span class="campo__rotulo">Obstáculo</span>
-          <input data-campo="obstaculo" value="${esc(f.obstaculo)}"></label>
-        <label class="campo"><span class="campo__rotulo">Objetivos</span>
-          <textarea data-campo="objetivos">${esc(f.objetivos)}</textarea></label>
-        ${f.radiante ? `<label class="campo"><span class="campo__rotulo">Ideais falados</span>
-          <textarea data-campo="ideais">${esc(f.ideais)}</textarea></label>` : ''}
-        <label class="campo"><span class="campo__rotulo">Conexões</span>
-          <textarea data-campo="conexoes">${esc(f.conexoes)}</textarea></label>
-        <label class="campo"><span class="campo__rotulo">Equipamento e esferas</span>
-          <textarea data-campo="equipamento">${esc(f.equipamento)}</textarea></label>
-        <label class="campo"><span class="campo__rotulo">Anotações</span>
-          <textarea data-campo="anotacoes">${esc(f.anotacoes)}</textarea></label>
+    <div class="linha-pericia">
+      <button type="button" class="linha-pericia__mod" data-acao="rolar-pericia" data-pericia="${esc(p.nome)}"
+        aria-label="Rolar ${esc(p.nome)}"><span class="num">${sinal(modificador(f, p))}</span></button>
+      <span class="linha-pericia__nome">${esc(p.nome)} <small>(${sigla})</small></span>
+      <span class="linha-pericia__circulos">${circulos(p.nome, tipo, grad)}</span>
+    </div>`;
+}
+
+function linhaPropria(f, p) {
+  const grad = f.pericias[p.nome] || 0;
+  const modificadorPropria = (f.atributos[p.atributo] || 0) + grad;
+  return `
+    <div class="linha-pericia linha-pericia--propria">
+      <button type="button" class="linha-pericia__mod" data-acao="rolar-propria" data-indice="${p.indice}"
+        aria-label="Rolar ${esc(p.nome || 'perícia própria')}"><span class="num">${sinal(modificadorPropria)}</span></button>
+      <span class="linha-pericia__nome">
+        <input data-propria="${p.indice}" data-prop="nome" value="${esc(p.nome)}"
+          placeholder="perícia" aria-label="Nome da perícia própria">
+        <select data-propria="${p.indice}" data-prop="atributo" aria-label="Atributo da perícia própria">
+          ${ATRIBUTOS.map((a) => `<option value="${a.id}" ${a.id === p.atributo ? 'selected' : ''}>${a.sigla}</option>`).join('')}
+        </select>
+        <button type="button" class="objetivo-folha__tirar" data-acao="tirar-propria" data-indice="${p.indice}"
+          aria-label="Remover perícia própria">×</button>
+      </span>
+      <span class="linha-pericia__circulos">${circulos(p.nome, 'pericias', grad)}</span>
+    </div>`;
+}
+
+function derivados(f) {
+  const caixa = (rotulo, valor) => moldura(`
+    <div class="derivado-folha">
+      <span class="rotulo">${rotulo}</span>
+      <strong class="derivado-folha__valor">${valor}</strong>
+    </div>`);
+
+  return `
+    <div class="derivados-folha">
+      ${caixa('Levantamento', levantamento(f.atributos.for || 0))}
+      ${caixa('Movimento', movimento(f.atributos.vel || 0))}
+      ${caixa('Dado de recuperação', dadoRecuperacao(f.atributos.von || 0))}
+      ${caixa('Distância dos sentidos', sentidos(f.atributos.con || 0))}
+    </div>`;
+}
+
+function condicoesEEspecialidades(f) {
+  return `
+    <div class="caixas-folha caixas-folha--12">
+      ${moldura(`
+        <span class="rotulo">Condições e lesões</span>
+        <div class="condicoes-folha">
+          ${CONDICOES.map(([nome, efeito]) => `
+            <button type="button" data-acao="condicao" data-condicao="${esc(nome)}"
+              aria-pressed="${f.condicoes.includes(nome)}" title="${esc(efeito)}">${esc(nome)}</button>`).join('')}
+        </div>
+        <textarea data-campo="lesoes" rows="2" placeholder="Lesões e durações"
+          aria-label="Lesões">${esc(f.lesoes || '')}</textarea>`)}
+
+      ${moldura(`
+        <span class="rotulo">Especialidades</span>
+        ${listaEtiquetas('especialidades', f.especialidades, 'Ex.: Espada longa, Alethiana')}`)}
+    </div>`;
+}
+
+function listaEtiquetas(lista, itens, marcador) {
+  return `
+    <div class="etiquetas-folha">
+      ${itens.length
+        ? itens.map((t, i) => `<span class="etiqueta">${esc(t)}
+            <button type="button" data-acao="tirar-item" data-lista="${lista}" data-indice="${i}"
+              aria-label="Remover ${esc(t)}">×</button></span>`).join('')
+        : '<span class="campo__dica" style="margin:0">Nada aqui ainda.</span>'}
+    </div>
+    <div class="entrada-folha">
+      <input data-novo="${lista}" placeholder="${esc(marcador)}" aria-label="${esc(marcador)}">
+      <button type="button" data-acao="por-item" data-lista="${lista}">Add</button>
+    </div>`;
+}
+
+function armasETalentos(f) {
+  return `
+    <div class="caixas-folha caixas-folha--12">
+      ${moldura(`
+        <span class="rotulo">Armas</span>
+        ${f.armas.length ? `
+          <div class="arma-folha__cabecalho">
+            <span>Arma</span><span>Perícia</span><span>Dano</span><span></span>
+          </div>` : ''}
+        ${f.armas.map((a, i) => `
+          <div class="arma-folha">
+            <input data-arma="${i}" data-prop="nome" value="${esc(a.nome)}" aria-label="Nome da arma">
+            <select data-arma="${i}" data-prop="pericia" aria-label="Perícia da arma">
+              ${PERICIAS.map((p) => `<option ${p.nome === a.pericia ? 'selected' : ''}>${esc(p.nome)}</option>`).join('')}
+            </select>
+            <input data-arma="${i}" data-prop="dano" value="${esc(a.dano)}" placeholder="1d8" aria-label="Dano">
+            <span class="arma-folha__acoes">
+              <button type="button" data-acao="atacar" data-arma="${i}">Atacar</button>
+              <button type="button" data-acao="tirar-arma" data-arma="${i}" aria-label="Excluir arma">×</button>
+            </span>
+          </div>`).join('')}
+        <div class="entrada-folha">
+          <button type="button" data-acao="nova-arma">+ Arma</button>
+        </div>`)}
+
+      ${moldura(`
+        <span class="rotulo">Talentos</span>
+        ${listaEtiquetas('talentos', f.talentos, 'Nome do talento')}`)}
+    </div>`;
+}
+
+function verso(f) {
+  /* As colunas seguem o verso da ficha impressa: aparência à esquerda,
+     equipamento e marcos no meio, propósito e objetivos à direita. */
+  return `
+    <div class="caixas-folha caixas-folha--111">
+      <div class="folha__pilha">
+        ${moldura(`
+          <span class="rotulo">Aparência do personagem</span>
+          <textarea data-campo="aparencia" rows="9" aria-label="Aparência do personagem">${esc(f.aparencia)}</textarea>`)}
+        ${moldura(`
+          <div class="caixa-folha__corpo">
+            <span class="rotulo" style="padding-left:0;padding-right:0">Ajustes</span>
+            <label class="linha" style="cursor:pointer;gap:.5rem;font-size:.85rem">
+              <input type="checkbox" data-campo="radiante" ${f.radiante ? 'checked' : ''}
+                     style="width:17px;height:17px;min-height:auto;accent-color:var(--luz);padding:0">
+              Cavaleiro Radiante
+            </label>
+            <div class="grade grade--2" style="margin-top:.5rem;gap:.4rem">
+              <label class="campo"><span class="campo__rotulo">Ajuste de vida</span>
+                <input type="number" data-campo="ajusteVida" value="${f.ajusteVida || 0}"
+                  style="border:1px solid var(--borda);padding:.3rem"></label>
+              <label class="campo"><span class="campo__rotulo">Ajuste de foco</span>
+                <input type="number" data-campo="ajusteFoco" value="${f.ajusteFoco || 0}"
+                  style="border:1px solid var(--borda);padding:.3rem"></label>
+              <label class="campo"><span class="campo__rotulo">Deflexão</span>
+                <input type="number" data-campo="deflexao" value="${f.deflexao || 0}"
+                  style="border:1px solid var(--borda);padding:.3rem"></label>
+              ${f.radiante ? `<label class="campo"><span class="campo__rotulo">Investidura máx.</span>
+                <input type="number" data-campo="investiduraMaxima" value="${f.investiduraMaxima || 0}"
+                  style="border:1px solid var(--borda);padding:.3rem"></label>` : ''}
+            </div>
+            <p class="campo__dica">Vida = 10 + FOR + ajuste · Foco = 2 + VON + ajuste.</p>
+          </div>`)}
       </div>
-    </section>`;
+
+      <div class="folha__pilha">
+        ${moldura(`
+          <span class="rotulo">Armadura e equipamento</span>
+          <textarea data-campo="equipamento" rows="9" aria-label="Armadura e equipamento">${esc(f.equipamento)}</textarea>`)}
+        ${campo('Marcos', 'marcos', f.marcos)}
+        ${moldura(`
+          <span class="rotulo">Anotações</span>
+          <textarea data-campo="anotacoes" rows="6" aria-label="Anotações">${esc(f.anotacoes)}</textarea>`)}
+      </div>
+
+      <div class="folha__pilha">
+        ${campo('Propósito', 'proposito', f.proposito)}
+        ${campo('Obstáculo', 'obstaculo', f.obstaculo)}
+        ${moldura(`
+          <span class="rotulo">Objetivos</span>
+          ${f.objetivos.map((o, i) => `
+            <div class="objetivo-folha">
+              <input data-objetivo="${i}" value="${esc(o.texto)}" aria-label="Objetivo ${i + 1}">
+              <span class="objetivo-folha__marcas">
+                ${Array.from({ length: 3 }, (_, n) => `
+                  <button type="button" data-acao="progresso" data-indice="${i}" data-nivel="${n + 1}"
+                    aria-pressed="${n < o.progresso}"
+                    aria-label="Objetivo ${i + 1} com ${n + 1} de 3"></button>`).join('')}
+              </span>
+              <button type="button" class="objetivo-folha__tirar" data-acao="tirar-objetivo" data-indice="${i}"
+                aria-label="Remover objetivo">×</button>
+            </div>`).join('')}
+          <div class="entrada-folha">
+            <button type="button" data-acao="novo-objetivo">+ Objetivo</button>
+          </div>`)}
+        ${f.radiante ? moldura(`
+          <span class="rotulo">Ideais falados</span>
+          <textarea data-campo="ideais" rows="4" aria-label="Ideais falados">${esc(f.ideais)}</textarea>`) : ''}
+        ${campo('Cultura', 'cultura', f.cultura)}
+        ${moldura(`
+          <span class="rotulo">Conexões</span>
+          <textarea data-campo="conexoes" rows="5" aria-label="Conexões">${esc(f.conexoes)}</textarea>`)}
+      </div>
+    </div>`;
 }
 
 /* ---------------------------------------------------------------- ações */
@@ -337,10 +420,9 @@ function ligar() {
   ligarAcoes(raiz, {
     vital(alvo) {
       const f = fichaAtual();
-      const delta = Number(alvo.dataset.delta);
-      const tetos = { vida: vidaMaxima(f), foco: focoMaximo(f), investidura: f.investiduraMaxima || 0 };
       const chave = alvo.dataset.vital;
-      f[chave] = Math.max(0, Math.min(tetos[chave], f[chave] + delta));
+      const tetos = { vida: vidaMaxima(f), foco: focoMaximo(f), investidura: f.investiduraMaxima || 0 };
+      f[chave] = Math.max(0, Math.min(tetos[chave], f[chave] + Number(alvo.dataset.delta)));
       salvar(); desenharFicha(); tremer();
     },
 
@@ -350,16 +432,20 @@ function ligar() {
       const vidaAntes = vidaMaxima(f);
       const focoAntes = focoMaximo(f);
       f.atributos[chave] = Math.max(0, Math.min(10, (f.atributos[chave] || 0) + Number(alvo.dataset.delta)));
-      // O máximo mudou: leva o valor atual junto, como num ganho de nível.
+      // o máximo mudou: o valor atual acompanha, como num ganho de nível
       f.vida = Math.max(0, Math.min(vidaMaxima(f), f.vida + (vidaMaxima(f) - vidaAntes)));
       f.foco = Math.max(0, Math.min(focoMaximo(f), f.foco + (focoMaximo(f) - focoAntes)));
       salvar(); desenharFicha(); tremer();
     },
 
+    /* Clicar no círculo n define a graduação como n; clicar no último aceso
+       apaga, que é como se risca um círculo no papel. */
     graduacao(alvo) {
       const f = fichaAtual();
       const { pericia, tipo } = alvo.dataset;
-      f[tipo][pericia] = Math.max(0, Math.min(5, (f[tipo][pericia] || 0) + Number(alvo.dataset.delta)));
+      const nivel = Number(alvo.dataset.nivel);
+      const atual = f[tipo][pericia] || 0;
+      f[tipo][pericia] = atual === nivel ? nivel - 1 : nivel;
       salvar(); desenharFicha(); tremer();
     },
 
@@ -373,99 +459,162 @@ function ligar() {
 
     'rolar-pericia'(alvo) {
       const f = fichaAtual();
-      const p = periciasDe(f).find((x) => x.nome === alvo.dataset.pericia);
+      const p = [...PERICIAS, ...FLUXOS].find((x) => x.nome === alvo.dataset.pericia);
       aoRolarPericia(p.nome, modificador(f, p));
+    },
+
+    'rolar-propria'(alvo) {
+      const f = fichaAtual();
+      const p = f.periciasProprias[Number(alvo.dataset.indice)];
+      if (!p?.nome) { recado('Dê um nome a essa perícia primeiro'); return; }
+      aoRolarPericia(p.nome, (f.atributos[p.atributo] || 0) + (f.pericias[p.nome] || 0));
+    },
+
+    'nova-propria'(alvo) {
+      const f = fichaAtual();
+      const reino = alvo.dataset.reino;
+      const atributo = ATRIBUTOS.find((a) => a.reino === reino).id;
+      f.periciasProprias.push({ nome: '', atributo });
+      salvar(); desenharFicha();
+    },
+
+    'tirar-propria'(alvo) {
+      const f = fichaAtual();
+      const [removida] = f.periciasProprias.splice(Number(alvo.dataset.indice), 1);
+      if (removida?.nome) delete f.pericias[removida.nome];
+      salvar(); desenharFicha();
     },
 
     'nova-arma'() {
       fichaAtual().armas.push({
         nome: 'Nova arma', pericia: 'Armamento Leve', dano: '1d6',
-        tipo: 'cortante', alcance: 'corpo a corpo',
+        tipo: '', alcance: '',
       });
       salvar(); desenharFicha();
     },
 
-    'remover-arma'(alvo) {
+    'tirar-arma'(alvo) {
       fichaAtual().armas.splice(Number(alvo.dataset.arma), 1);
       salvar(); desenharFicha();
     },
 
-    atacar(alvo) { dispararArma(alvo, false); },
-    dano(alvo) { dispararArma(alvo, true); },
+    atacar(alvo) {
+      const f = fichaAtual();
+      const arma = f.armas[Number(alvo.dataset.arma)];
+      const p = PERICIAS.find((x) => x.nome === arma.pericia) || PERICIAS[0];
+      aoAtacar(arma, modificador(f, p), false);
+    },
 
-    'adicionar-item'(alvo) {
+    'por-item'(alvo) {
       const lista = alvo.dataset.lista;
-      const campo = raiz.querySelector(`[data-novo="${lista}"]`);
-      const valor = campo.value.trim();
+      const entrada = raiz.querySelector(`[data-novo="${lista}"]`);
+      const valor = entrada.value.trim();
       if (!valor) return;
       fichaAtual()[lista].push(valor);
-      campo.value = '';
+      entrada.value = '';
       salvar(); desenharFicha();
     },
 
-    'remover-item'(alvo) {
+    'tirar-item'(alvo) {
       fichaAtual()[alvo.dataset.lista].splice(Number(alvo.dataset.indice), 1);
       salvar(); desenharFicha();
+    },
+
+    'novo-objetivo'() {
+      fichaAtual().objetivos.push({ texto: '', progresso: 0 });
+      salvar(); desenharFicha();
+    },
+
+    'tirar-objetivo'(alvo) {
+      fichaAtual().objetivos.splice(Number(alvo.dataset.indice), 1);
+      salvar(); desenharFicha();
+    },
+
+    progresso(alvo) {
+      const o = fichaAtual().objetivos[Number(alvo.dataset.indice)];
+      const nivel = Number(alvo.dataset.nivel);
+      o.progresso = o.progresso === nivel ? nivel - 1 : nivel;
+      salvar(); desenharFicha(); tremer();
     },
 
     recuperar() {
       const f = fichaAtual();
       const dado = dadoRecuperacao(f.atributos.von || 0);
-      const { soma } = rolarExpressao(dado);
-      abrirRecuperacao(dado, soma);
+      abrirRecuperacao(dado, rolarExpressao(dado).soma);
     },
 
-    async descanso() {
+    descanso() {
       descansoLongo(fichaAtual());
       desenharFicha();
       recado('Descanso longo — recursos cheios');
     },
   });
 
-  // Enter no campo de talento/especialidade adiciona sem precisar do botão.
   raiz.addEventListener('keydown', (ev) => {
-    const campo = ev.target.closest('[data-novo]');
-    if (!campo || ev.key !== 'Enter') return;
+    const entrada = ev.target.closest('[data-novo]');
+    if (!entrada || ev.key !== 'Enter') return;
     ev.preventDefault();
-    raiz.querySelector(`[data-acao="adicionar-item"][data-lista="${campo.dataset.novo}"]`)?.click();
+    raiz.querySelector(`[data-acao="por-item"][data-lista="${entrada.dataset.novo}"]`)?.click();
   });
 
   ligarEntradas(raiz, {
     '*'(alvo, valor) {
       const f = fichaAtual();
-      const campo = alvo.dataset.campo;
-
-      if (campo.startsWith('arma:')) {
-        const [, i, prop] = campo.split(':');
-        f.armas[Number(i)][prop] = valor;
-        salvar();
-        return;
-      }
-
+      const campoNome = alvo.dataset.campo;
       const numericos = ['nivel', 'ajusteVida', 'ajusteFoco', 'deflexao', 'investiduraMaxima'];
-      if (numericos.includes(campo)) {
-        f[campo] = campo === 'nivel'
-          ? Math.max(1, Math.min(30, Number(valor) || 1))
-          : (Number(valor) || 0);
-      } else {
-        f[campo] = valor;
-      }
+
+      f[campoNome] = numericos.includes(campoNome)
+        ? (campoNome === 'nivel' ? Math.max(1, Math.min(30, Number(valor) || 1)) : (Number(valor) || 0))
+        : valor;
       salvar();
 
-      // Só redesenha quando o valor muda outra coisa na tela.
-      if (['nivel', 'radiante', 'ajusteVida', 'ajusteFoco', 'deflexao', 'investiduraMaxima', 'nome'].includes(campo)) {
+      if (['nivel', 'radiante', 'ajusteVida', 'ajusteFoco', 'deflexao', 'investiduraMaxima'].includes(campoNome)) {
         desenharFicha();
+      }
+      if (campoNome === 'nome' || campoNome === 'nivel' || campoNome === 'trilhas') {
         document.dispatchEvent(new CustomEvent('ficha:renomeada'));
       }
     },
   });
-}
 
-function dispararArma(alvo, soDano) {
-  const f = fichaAtual();
-  const arma = f.armas[Number(alvo.dataset.arma)];
-  const p = periciasDe(f).find((x) => x.nome === arma.pericia) || PERICIAS[0];
-  aoAtacar(arma, modificador(f, p), soDano);
+  // campos que não são do objeto raiz da ficha
+  raiz.addEventListener('input', (ev) => {
+    const f = fichaAtual();
+
+    const arma = ev.target.closest('[data-arma][data-prop]');
+    if (arma) {
+      f.armas[Number(arma.dataset.arma)][arma.dataset.prop] = arma.value;
+      salvar();
+      return;
+    }
+
+    const propria = ev.target.closest('[data-propria][data-prop]');
+    if (propria) {
+      const alvo = f.periciasProprias[Number(propria.dataset.propria)];
+      const antes = alvo.nome;
+      alvo[propria.dataset.prop] = propria.value;
+      // renomear leva a graduação junto
+      if (propria.dataset.prop === 'nome' && antes && antes !== propria.value) {
+        f.pericias[propria.value] = f.pericias[antes] || 0;
+        delete f.pericias[antes];
+      }
+      salvar();
+      return;
+    }
+
+    const objetivo = ev.target.closest('[data-objetivo]');
+    if (objetivo) {
+      f.objetivos[Number(objetivo.dataset.objetivo)].texto = objetivo.value;
+      salvar();
+    }
+  });
+
+  raiz.addEventListener('change', (ev) => {
+    const propria = ev.target.closest('select[data-propria][data-prop]');
+    if (!propria) return;
+    fichaAtual().periciasProprias[Number(propria.dataset.propria)][propria.dataset.prop] = propria.value;
+    salvar(); desenharFicha();
+  });
 }
 
 function abrirRecuperacao(dado, valor) {
@@ -480,10 +629,12 @@ function abrirRecuperacao(dado, valor) {
       </div>
     </div>
     <div class="dialogo__pe">
-      <button class="btn" data-alvo="foco">Tudo em foco</button>
-      <button class="btn btn--principal" data-alvo="vida">Tudo em vida</button>
+      <button class="btn" type="button" data-alvo="foco">Tudo em foco</button>
+      <button class="btn btn--principal" type="button" data-alvo="vida">Tudo em vida</button>
     </div>`;
   document.body.append(dlg);
+
+  const fechar = () => { dlg.close(); dlg.remove(); };
   dlg.addEventListener('click', (ev) => {
     const botao = ev.target.closest('[data-alvo]');
     if (!botao) return;
@@ -493,8 +644,8 @@ function abrirRecuperacao(dado, valor) {
     f[alvo] = Math.min(teto, f[alvo] + valor);
     salvar(); desenharFicha();
     recado(`+${valor} de ${alvo}`);
-    dlg.close();
+    fechar();
   });
-  dlg.addEventListener('close', () => dlg.remove(), { once: true });
+  dlg.addEventListener('cancel', (ev) => { ev.preventDefault(); fechar(); });
   dlg.showModal();
 }

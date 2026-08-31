@@ -23,7 +23,7 @@ MODULOS = [
     "painel-ficha", "painel-dados", "painel-regras",
     "painel-combate", "painel-referencia", "construtor", "app",
 ]
-CSS = ["base", "componentes", "layout", "ficha", "site"]
+CSS = ["base", "componentes", "layout", "ficha", "folha", "site"]
 
 RE_IMPORT = re.compile(r"^import\s*\{(.*?)\}\s*from\s*'\./([a-z-]+)\.js';\s*$", re.M | re.S)
 RE_EXPORT_DECL = re.compile(r"^export\s+(const|let|var|async function|function|class)\s+([A-Za-z_$][\w$]*)", re.M)

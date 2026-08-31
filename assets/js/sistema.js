@@ -63,12 +63,15 @@ export const REINOS = {
 const TABELA_MOVIMENTO   = [[0, '6 m'], [2, '7,5 m'], [4, '9 m'], [6, '12 m'], [8, '18 m'], [Infinity, '24 m']];
 const TABELA_RECUPERACAO = [[0, '1d4'], [2, '1d6'], [4, '1d8'], [6, '1d10'], [8, '1d12'], [Infinity, '1d20']];
 const TABELA_SENTIDOS    = [[0, '1,5 m'], [2, '3 m'], [4, '6 m'], [6, '15 m'], [8, '30 m'], [Infinity, 'sem limite']];
+/* Capacidade de levantamento por Força (p.48). A ficha oficial tem esse campo. */
+const TABELA_LEVANTAMENTO = [[0, '50 kg'], [2, '100 kg'], [4, '250 kg'], [6, '500 kg'], [8, '2.500 kg'], [Infinity, '5.000 kg']];
 
 const consultar = (tabela, valor) => (tabela.find(([teto]) => valor <= teto) || tabela.at(-1))[1];
 
 export const movimento    = (velocidade) => consultar(TABELA_MOVIMENTO, velocidade);
 export const dadoRecuperacao = (vontade) => consultar(TABELA_RECUPERACAO, vontade);
 export const sentidos     = (consciencia) => consultar(TABELA_SENTIDOS, consciencia);
+export const levantamento = (forca) => consultar(TABELA_LEVANTAMENTO, forca);
 
 /* --- fórmulas da ficha --------------------------------------------------
    Vida = 10 + FOR e Foco = 2 + VON (p.23).

@@ -73,6 +73,7 @@ def limpar(texto: str) -> str:
             continue
         linhas.append(linha)
     txt = "\n".join(linhas)
+    txt = txt.replace(chr(0xF075), "•")   # marcador de lista da fonte do livro
     txt = re.sub(r"(\w)\s*-\s*\n\s*(\w)", r"\1\2", txt)      # hifen de quebra
     txt = re.sub(r"(?<=[a-zà-ú])F(?=[a-zà-ú])", "f", txt)     # ligadura "fi"
     return KERNING.sub(r"\1\2", txt)
@@ -135,6 +136,10 @@ GLIFOS = {
     "★": "ativação especial", "*": "ativação especial",
     "∞": "sempre ativo", "8": "sempre ativo",
 }
+# Uma linha de pre-requisito que termina nestas palavras esta pela metade: o
+# que completa ela vem na linha seguinte, mesmo comecando com maiuscula.
+PENDURADO = re.compile(r"(?:[;,]|\b(?:talento|talento-?chave|e|ou|de|da|do|com))\s*$", re.I)
+
 GLIFO_INICIAL = re.compile(r"^([▶▷↻★∞*0-38Rr])\s*(?=[A-ZÁÂÃÉÊÍÓÔÕÚÇ])")
 # Nas paginas de fluxo o nome do fluxo ("transformação") vem antes do glifo, e
 # as vezes sobra o fim da descricao anterior. O nome do talento e o que vem
@@ -173,11 +178,25 @@ FLUXOS = [
 
 
 def limpar_corrido(t: str) -> str:
-    t = re.sub(r"\n(?=[a-zà-ú])", " ", t)
-    t = re.sub(r"[ \t]+", " ", t)
-    t = re.sub(r"\n{2,}", "\n", t)
-    return KERNING.sub(r"\1\2", t).strip()
+    """Remonta os paragrafos que o PDF quebrou por causa da coluna.
 
+    Nas paginas de arvore cada linha e uma quebra de coluna, nao de frase.
+    Juntamos com a linha de cima sempre que ela nao terminou a frase — a
+    excecao sao os itens de lista, que comecam com marcador.
+    """
+    saida = []
+    for linha in t.split(chr(10)):
+        atual = linha.strip()
+        if not atual:
+            continue
+        marcador = bool(re.match(r"^[•▪–—-]|^[\u25b6\u25b7\u21bb\u2605\u221e]", atual))
+        if saida and not marcador and not re.search(r"[.!?:;]$", saida[-1]):
+            saida[-1] += " " + atual
+        else:
+            saida.append(atual)
+    txt = chr(10).join(saida)
+    txt = re.sub(r"[ \t]+", " ", txt)
+    return KERNING.sub(r"\1\2", txt).strip()
 
 def uma_linha(t: str) -> str:
     """Junta tudo numa linha so — pre-requisito nunca tem paragrafo."""
@@ -365,10 +384,23 @@ def concluir_talentos(crus, regex_pre):
             pre = uma_linha(achado.group(1))
             sobra = cabeca[achado.end():].strip()
         else:
-            # sem gramatica reconhecida, fica a primeira linha e o resto e texto
-            partes = antes.split("\n", 1)
-            pre = uma_linha(partes[0])
-            sobra = partes[1].strip() if len(partes) > 1 else ""
+            # Pre-requisito em texto livre ("Ter um patrono que faz parte da
+            # alta sociedade"): a gramatica nao alcanca, mas o livro quebra a
+            # linha no meio da frase e a continuacao sempre comeca em
+            # minuscula. Juntamos enquanto for continuacao; a descricao vem
+            # depois, comecando com maiuscula.
+            partes = [l for l in antes.split(chr(10)) if l.strip()]
+            pedaco = partes[:1]
+            for proxima in partes[1:]:
+                juntas = uma_linha(" ".join(pedaco))
+                # continua se a linha de baixo e' continuacao da frase, ou se a
+                # de cima terminou pendurada ("...; talento" espera o nome)
+                if proxima.lstrip()[:1].islower() or PENDURADO.search(juntas):
+                    pedaco.append(proxima)
+                else:
+                    break
+            pre = uma_linha(" ".join(pedaco))
+            sobra = chr(10).join(partes[len(pedaco):])
 
         descricao = limpar_corrido("\n".join(x for x in (sobra, depois) if x))
         descricao = LEGENDA.split(descricao)[0].strip()

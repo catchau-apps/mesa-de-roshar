@@ -3,9 +3,8 @@
 Gera o pacote de dados da Mesa de Roshar a partir dos SEUS PDFs do
 Cosmere RPG / Guerra das Tempestades.
 
-O pacote fica na sua maquina. Ele nao vai para o repositorio (esta no
-.gitignore) e nao sobe para lugar nenhum: o site le o arquivo direto no
-navegador.
+O pacote fica na sua maquina. O site le o arquivo direto no navegador e
+guarda no IndexedDB; nao existe servidor para onde mandar nada.
 
 Uso:
     python ferramentas/gerar_pacote.py "C:/caminho/para/os/PDFs"
@@ -35,10 +34,9 @@ if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8")
 
 FORMATO = "mesa-roshar/pacote"
-VERSAO = 1
+VERSAO = 2
 
-# Como reconhecer cada livro pelo nome do arquivo. A ordem importa: o primeiro
-# padrao que casar define o rotulo.
+# Como reconhecer cada livro pelo nome do arquivo.
 LIVROS = [
     (r"guia[- ]de[- ]regras|rules?[- ]?guide|core", "Regras"),
     (r"guia[- ]do[- ]mundo|world[- ]?guide", "Mundo"),
@@ -48,22 +46,21 @@ LIVROS = [
     (r"gm[- ]?rules|visao[- ]geral", "Visão Geral MJ"),
 ]
 
+# Ficha preenchida e material de personagem sao do jogador, nao base de
+# conhecimento: indexa-los so suja a busca com dados de uma mesa.
+IGNORAR = re.compile(
+    r"kash|ficha[- ]de[- ]personagem|character[- ]sheet|token|battlemap|mapa",
+    re.IGNORECASE,
+)
+
 # ------------------------------------------------------------------ limpeza
 
 LIXO = re.compile(
     r"licenciado para .*|^\s*\d+\s*$|guerra das tempestades\s*$",
     re.IGNORECASE,
 )
-
-# O rodape traz o numero impresso, as vezes colado no titulo do capitulo
-# ("Capitulo 3: Estatisticas de Personagem50"). Esse numero costuma ficar
-# algumas paginas atras do numero do PDF por causa da capa.
 RODAPE = re.compile(r"(?:Cap[íi]tulo\s+\d+:[^\n\d]{3,60}?|^\s*)(\d{1,3})\s*$", re.M)
-
-# O PDF separa a maiuscula inicial do resto da palavra ("T iro", "T alento").
-# So consoantes entram na correcao: "A", "E" e "O" sao palavras de verdade.
 KERNING = re.compile(r"\b([BCDFGHJKLMNPQRSTVWXYZ])\s+([a-zà-ú])")
-
 PARENTESE_FIM = re.compile(r"\s*\([^)]{0,12}\)\s*$")
 TITULO = re.compile(r"^[A-ZÁÀÂÃÉÊÍÓÔÕÚÇ][\wÁ-Úá-ú' ]{2,45}$")
 
@@ -76,15 +73,13 @@ def limpar(texto: str) -> str:
             continue
         linhas.append(linha)
     txt = "\n".join(linhas)
-    # junta palavra quebrada no fim da linha; o livro compoe o hifen com espaco
-    txt = re.sub(r"(\w)\s*-\s*\n\s*(\w)", r"\1\2", txt)
-    # a ligadura "fi" do PDF sai como F maiusculo dentro da palavra
-    txt = re.sub(r"(?<=[a-zà-ú])F(?=[a-zà-ú])", "f", txt)
+    txt = re.sub(r"(\w)\s*-\s*\n\s*(\w)", r"\1\2", txt)      # hifen de quebra
+    txt = re.sub(r"(?<=[a-zà-ú])F(?=[a-zà-ú])", "f", txt)     # ligadura "fi"
     return KERNING.sub(r"\1\2", txt)
 
 
 def achar_offset(brutos: list[str]) -> int:
-    """Descobre a diferenca entre a pagina do PDF e a numerada no livro."""
+    """Diferenca entre a pagina do PDF e a numerada no livro."""
     votos = Counter()
     for i, bruto in enumerate(brutos):
         for m in RODAPE.finditer(bruto):
@@ -100,7 +95,6 @@ def achar_offset(brutos: list[str]) -> int:
 
 
 def achar_titulos(texto: str) -> list[str]:
-    """Linhas curtas e capitalizadas viram ancoras de secao para a busca."""
     achados = []
     for linha in texto.splitlines():
         linha = PARENTESE_FIM.sub("", linha.strip())
@@ -111,7 +105,7 @@ def achar_titulos(texto: str) -> list[str]:
 
 
 def rotular(nome_arquivo: str) -> str:
-    base = nome_arquivo.lower()
+    base = os.path.basename(nome_arquivo).lower()
     for padrao, rotulo in LIVROS:
         if re.search(padrao, base):
             return rotulo
@@ -121,20 +115,32 @@ def rotular(nome_arquivo: str) -> str:
 # ------------------------------------------------------------------ talentos
 
 ANCORA = re.compile(r"Pr[ée]-?\s?requisitos?:", re.I)
-ATIVACAO = re.compile(r"Ativa[çc][ãa]o:\s*([^\n]{0,14})", re.I)
+ATIVACAO_LINHA = re.compile(r"Ativa[çc][ãa]o:\s*([^\n]{0,14})", re.I)
 LEGENDA = re.compile(r"[íi]cone\s+legenda|Cap[íi]tulo\s+\d+:|CORE RULEBOOK", re.I)
-# Na arvore de talentos alguns nomes vem sem linha de pre-requisito, entao a
-# descricao do anterior engolia o proximo. Um cabecalho ali e sempre glifo de
-# custo seguido de nome com maiuscula.
-CABECALHO_ARVORE = re.compile(
-    r"\n(?=[▶▷↻★∞*0-9]{1,3}\s*[A-ZÁÂÃÉÊÍÓÔÕÚÇ][a-zà-ú])"
-)
 LEGENDA_CUSTO = re.compile(
     r"^(?:Sempre ativo|Ação livre|Ativação especial|Reação|\d+\s*aç(?:ão|ões))\s*", re.I
 )
 LIXO_NOME = re.compile(
     r"cap[íi]tulo|trilhas?\s|especializa|^os talentos|^p[áa]gina|^\d|^[▶▷↻★∞R0-9\s]+$", re.I
 )
+
+# Nas paginas de arvore o custo vem como um glifo antes do nome, e nao existe
+# linha "Ativação:". O PDF as vezes entrega o simbolo como numero ou letra.
+GLIFOS = {
+    "▶": "1 ação", "1": "1 ação",
+    "2": "2 ações",
+    "3": "3 ações",
+    "▷": "ação livre", "0": "ação livre",
+    "↻": "reação", "R": "reação", "r": "reação",
+    "★": "ativação especial", "*": "ativação especial",
+    "∞": "sempre ativo", "8": "sempre ativo",
+}
+GLIFO_INICIAL = re.compile(r"^([▶▷↻★∞*0-38Rr])\s*(?=[A-ZÁÂÃÉÊÍÓÔÕÚÇ])")
+# Nas paginas de fluxo o nome do fluxo ("transformação") vem antes do glifo, e
+# as vezes sobra o fim da descricao anterior. O nome do talento e o que vem
+# depois do ultimo glifo da linha.
+GLIFO_INTERNO = re.compile(r"^.*[^\w]?([▶▷↻★∞*0-38Rr])\s*(?=[A-ZÁÂÃÉÊÍÓÔÕÚÇ])")
+
 ABRE_TRILHA = re.compile(r"Especializa[çc][õo]es de\s+([A-ZÁÂÃÉÊÍÓÔÕÚÇ][\wÁ-Úá-úãõçâêô]+)")
 ESPECIALIZACAO = re.compile(
     r"^Especializa[çc][ãa]o\s+([A-ZÁÂÃÉÊÍÓÔÕÚÇ][\wÁ-Úá-úãõçâêô]+)\s*$", re.M
@@ -153,17 +159,17 @@ CULTURAS = [
     "Natan", "Ouvinte", "Reshiana", "Shina", "Thaylena", "Unkalakiana",
     "Vedena", "Viajante",
 ]
-
-
-def limpar_nome(n: str) -> str:
-    n = " ".join(n.split())
-    n = re.sub(r"^[▶▷↻★∞*0-9\s]+", "", n)
-    n = LEGENDA_CUSTO.sub("", n)
-    n = re.sub(r"^[▶▷↻★∞*0-9\s]+", "", n)
-    n = re.sub(r"\s*\([^)]*\)\s*$", "", n)
-    if n.count(")") > n.count("("):          # sobra de titulo quebrado em duas linhas
-        n = re.sub(r"\s*\(.*$", "", n.split(")")[0])
-    return KERNING.sub(r"\1\2", n).strip(" .:-")
+PERICIAS = [
+    "Agilidade", "Armamento Leve", "Armamento Pesado", "Atletismo", "Furtividade",
+    "Ladroagem", "Dedução", "Disciplina", "Intimidação", "Manufatura", "Medicina",
+    "Saber", "Dissimulação", "Intuição", "Liderança", "Percepção", "Persuasão",
+    "Sobrevivência",
+]
+# os fluxos também aparecem em pré-requisitos
+FLUXOS = [
+    "Adesão", "Gravitação", "Divisão", "Abrasão", "Progressão", "Iluminação",
+    "Transformação", "Transporte", "Coesão", "Tensão",
+]
 
 
 def limpar_corrido(t: str) -> str:
@@ -173,49 +179,103 @@ def limpar_corrido(t: str) -> str:
     return KERNING.sub(r"\1\2", t).strip()
 
 
-def pegar_nome(antes: str) -> str:
-    """O nome fica na(s) linha(s) logo antes de 'Pré-requisitos:'.
+def uma_linha(t: str) -> str:
+    """Junta tudo numa linha so — pre-requisito nunca tem paragrafo."""
+    return KERNING.sub(r"\1\2", " ".join(t.split())).strip()
 
-    Na arvore de talentos ele quebra em duas linhas ("Comando/Demonstrativo"),
-    entao juntamos a linha anterior quando ela parece continuacao de titulo.
+
+LIGACOES = {"de", "do", "da", "dos", "das", "e", "o", "a", "os", "as",
+            "em", "no", "na", "nos", "nas", "ao", "aos", "à", "às", "com",
+            "sem", "por", "para", "pelo", "pela", "que", "se", "um", "uma"}
+
+
+def juntar_palavras_partidas(nome: str) -> str:
+    """O PDF insere espaco no meio da palavra: "Resul tado", "Al ternauta".
+
+    Uma palavra minuscula logo depois de uma maiuscula so pode ser preposicao;
+    se nao for, e o resto da palavra anterior.
     """
+    partes = nome.split()
+    saida = []
+    for parte in partes:
+        if (saida and parte[:1].islower() and parte.lower() not in LIGACOES
+                and saida[-1][:1].isupper()):
+            saida[-1] += parte
+        else:
+            saida.append(parte)
+    return " ".join(saida)
+
+
+def limpar_nome(n: str) -> tuple[str, str]:
+    """Devolve (nome, ativacao): o glifo de custo vem colado no nome."""
+    n = " ".join(n.split())
+    ativacao = ""
+    m = GLIFO_INICIAL.match(n) or GLIFO_INTERNO.match(n)
+    if m:
+        ativacao = GLIFOS.get(m.group(1), "")
+        n = n[m.end():]
+    # rotulo de secao em minusculas antes do nome ("coesão Lança de Pedra")
+    n = re.sub(r"^(?:[a-zà-ú]+\s+)+(?=[A-ZÁÂÃÉÊÍÓÔÕÚÇ])", "", n)
+    n = re.sub(r"^[▶▷↻★∞*0-9\s]+", "", n)
+    n = LEGENDA_CUSTO.sub("", n)
+    n = re.sub(r"\s*\([^)]*\)\s*$", "", n)
+    if n.count(")") > n.count("("):
+        n = re.sub(r"\s*\(.*$", "", n.split(")")[0])
+    n = juntar_palavras_partidas(KERNING.sub(r"\1\2", n))
+    return n.strip(" .:-"), ativacao
+
+
+def pegar_nome(antes: str) -> str:
     linhas = [l.strip() for l in antes.split("\n") if l.strip()]
     if not linhas:
         return ""
     nome = linhas[-1]
     if len(linhas) >= 2:
         ant = linhas[-2]
-        # "Primeiro Ideal (talentochave" + "de Teceluz)": o parenteses aberto na
-        # linha de cima e prova de que o titulo continua embaixo
         parenteses_aberto = ant.count("(") > ant.count(")")
+        so_glifo = bool(re.fullmatch(r"[▶▷↻★∞*0-38Rr]", ant))
         cabe = (len(ant) <= 30 and len(nome) <= 30
                 and len(ant) + len(nome) <= 46
                 and not re.search(r"[.:;!?]$", ant))
-        if (cabe or parenteses_aberto) and not ANCORA.search(ant):
+        if (cabe or parenteses_aberto or so_glifo) and not ANCORA.search(ant):
             nome = ant + " " + nome
     return nome
 
 
 def fatiar_talentos(txt: str):
+    """(nome_cru, bloco) de cada talento da pagina."""
     ancoras = list(ANCORA.finditer(txt))
     for i, m in enumerate(ancoras):
         fim = ancoras[i + 1].start() if i + 1 < len(ancoras) else len(txt)
         nome = pegar_nome(txt[: m.start()])
         bloco = txt[m.end(): fim]
-
         if i + 1 < len(ancoras):
             prox = pegar_nome(txt[: ancoras[i + 1].start()])
             if prox:
                 sobra = len(prox.split("\n")[-1])
                 bloco = bloco[: max(0, len(bloco) - sobra - 1)]
+        yield nome, bloco
 
-        ma = ATIVACAO.search(bloco)
-        if ma:
-            pre, ativ, desc = bloco[: ma.start()], ma.group(1).strip(), bloco[ma.end():]
-        else:
-            partes = bloco.split("\n", 1)
-            pre, ativ, desc = partes[0], "", (partes[1] if len(partes) > 1 else "")
-        yield nome, pre, ativ, desc
+
+def montar_regex_prerequisito(nomes_de_talentos: list[str]) -> re.Pattern:
+    """Uma clausula de pre-requisito so tem estas formas conhecidas.
+
+    O regex consome exatamente ate onde a gramatica alcanca. Assim a descricao
+    nunca e engolida, e o pre-requisito nao fica pela metade quando quebra em
+    varias linhas ("Falar o Primeiro" numa linha, "Ideal" na seguinte).
+    """
+    pericias = "|".join(re.escape(p) for p in sorted(PERICIAS + FLUXOS, key=len, reverse=True))
+    talentos = "|".join(re.escape(t) for t in sorted(nomes_de_talentos, key=len, reverse=True))
+    ideais = r"Falar\s+o\s+(?:Primeiro|Segundo|Terceiro|Quarto|Quinto)\s+Ideal"
+    clausula = (
+        rf"(?:{ideais}"
+        rf"|N[íi]vel\s+\d+\s*\+?"
+        rf"|Ancestralidade\s+\w+"
+        rf"|[Tt]alento(?:-?\s?chave)?\s+(?:{talentos})"
+        rf"|(?:{pericias})\s*\+?\s*\d+\s*\+?"
+        rf"|nenhum)"
+    )
+    return re.compile(rf"^\s*({clausula}(?:\s*[;,]\s*(?:e\s+)?{clausula})*)", re.I)
 
 
 def secoes_heroicas(paginas):
@@ -258,55 +318,86 @@ def grupo_da_pagina(marcos, pagina, fim):
     return ""
 
 
-def extrair_talentos(paginas, faixa, tipo):
+def coletar_talentos(paginas, faixa, marcos):
+    """Passo 1: acha os talentos e guarda o bloco cru de cada um."""
     dentro = [p for p in paginas if faixa[0] <= p["pagina"] <= faixa[1]]
-    marcos = secoes_heroicas(dentro) if tipo == "heroica" else secoes_radiantes(dentro)
-    if tipo == "cantor":
-        marcos = [(faixa[0], "Cantor")]
-
-    talentos = []
+    crus = []
     especializacao = None
+
     for p in sorted(dentro, key=lambda x: x["pagina"]):
         txt = p["texto"]
         grupo = grupo_da_pagina(marcos, p["pagina"], faixa[1])
-
         m = ESPECIALIZACAO.search(txt)
         if m:
             especializacao = m.group(1).strip()
         if ABRE_TRILHA.search(txt):
             especializacao = None
 
-        for nome, pre, ativ, desc in fatiar_talentos(txt):
-            nome = limpar_nome(nome)
+        for nome_cru, bloco in fatiar_talentos(txt):
+            nome, glifo = limpar_nome(nome_cru)
             if not nome or len(nome) < 3 or LIXO_NOME.search(nome):
                 continue
-            descricao = LEGENDA.split(limpar_corrido(desc))[0].strip()
-            descricao = CABECALHO_ARVORE.split(descricao)[0].strip()
-            descricao = re.sub(r"\s*Cap[íi]tulo\s+\d+:.*$", "", descricao, flags=re.S).strip()
-            if len(descricao) < 25:
-                continue
-            talentos.append({
-                "nome": nome,
-                "grupo": grupo,
-                "especializacao": especializacao or "",
-                "preRequisitos": limpar_corrido(pre).strip(" .;") or "nenhum",
-                "ativacao": " ".join(ativ.split()),
-                "descricao": descricao[:1200],
-                "pagina": p["pagina"],
+            crus.append({
+                "nome": nome, "glifo": glifo, "bloco": bloco, "grupo": grupo,
+                "especializacao": especializacao or "", "pagina": p["pagina"],
             })
+    return crus
 
-    # tira duplicatas das paginas de resumo; o grupo entra na chave porque
-    # "Primeiro Ideal" existe em todas as ordens, cada um com seu texto
+
+def concluir_talentos(crus, regex_pre):
+    """Passo 2: separa pre-requisito, ativacao e descricao dentro do bloco."""
+    prontos = []
+    for c in crus:
+        bloco = c["bloco"]
+
+        ativacao = c["glifo"]
+        m = ATIVACAO_LINHA.search(bloco)
+        if m:
+            simbolo = m.group(1).strip()
+            ativacao = GLIFOS.get(simbolo, ativacao or simbolo)
+            antes, depois = bloco[: m.start()], bloco[m.end():]
+        else:
+            antes, depois = bloco, ""
+
+        cabeca = uma_linha(antes)
+        achado = regex_pre.match(cabeca)
+        if achado:
+            pre = uma_linha(achado.group(1))
+            sobra = cabeca[achado.end():].strip()
+        else:
+            # sem gramatica reconhecida, fica a primeira linha e o resto e texto
+            partes = antes.split("\n", 1)
+            pre = uma_linha(partes[0])
+            sobra = partes[1].strip() if len(partes) > 1 else ""
+
+        descricao = limpar_corrido("\n".join(x for x in (sobra, depois) if x))
+        descricao = LEGENDA.split(descricao)[0].strip()
+        descricao = re.sub(r"\s*Cap[íi]tulo\s+\d+:.*$", "", descricao, flags=re.S).strip()
+        if len(descricao) < 25:
+            continue
+
+        prontos.append({
+            "nome": c["nome"], "grupo": c["grupo"],
+            "especializacao": c["especializacao"],
+            "preRequisitos": pre.strip(" .;:") or "nenhum",
+            "ativacao": ativacao,
+            "descricao": descricao[:1400],
+            "pagina": c["pagina"],
+        })
+
+    # O livro repete cada talento na arvore e na pagina de descricao. Fica a
+    # versao com ativacao reconhecida e, entre iguais, a de texto mais longo.
     vistos = {}
-    for t in talentos:
+    for t in prontos:
         chave = (t["nome"], t["grupo"])
-        if chave not in vistos or len(t["descricao"]) > len(vistos[chave]["descricao"]):
+        anterior = vistos.get(chave)
+        nota = (bool(t["ativacao"]), len(t["descricao"]))
+        if not anterior or nota > (bool(anterior["ativacao"]), len(anterior["descricao"])):
             vistos[chave] = t
     return sorted(vistos.values(), key=lambda t: (t["grupo"], t["especializacao"], t["nome"]))
 
 
 def extrair_blocos(paginas, faixa, nomes, prefixo):
-    """Fatia trechos que comecam por 'prefixo Nome' (conjuntos, culturas)."""
     texto = "\n".join(
         p["texto"] for p in sorted(paginas, key=lambda x: x["pagina"])
         if faixa[0] <= p["pagina"] <= faixa[1]
@@ -326,22 +417,13 @@ def extrair_blocos(paginas, faixa, nomes, prefixo):
     return achados
 
 
-PERICIAS_LIVRO = [
-    "Agilidade", "Armamento Leve", "Armamento Pesado", "Atletismo", "Furtividade",
-    "Ladroagem", "Dedução", "Disciplina", "Intimidação", "Manufatura", "Medicina",
-    "Saber", "Dissimulação", "Intuição", "Liderança", "Percepção", "Persuasão",
-    "Sobrevivência",
-]
-
-
 def extrair_pericias(paginas):
-    """Descricao de cada pericia (cap.3). Cada uma abre com 'Nome (Atributo)'."""
     quebra = chr(10)
     texto = quebra.join(
         p["texto"] for p in sorted(paginas, key=lambda x: x["pagina"])
         if 58 <= p["pagina"] <= 68
     )
-    nomes = "|".join(re.escape(n) for n in PERICIAS_LIVRO)
+    nomes = "|".join(re.escape(n) for n in PERICIAS)
     atributos = "Força|Velocidade|Intelecto|Vontade|Consciência|Presença"
     padrao = re.compile(
         rf"^({nomes})\s*\((?:{atributos})\)\s*$(.*?)"
@@ -350,11 +432,10 @@ def extrair_pericias(paginas):
     )
     achados = {}
     for m in padrao.finditer(texto):
-        corpo = limpar_corrido(m.group(2))
-        corpo = LEGENDA.split(corpo)[0].strip()
+        corpo = LEGENDA.split(limpar_corrido(m.group(2)))[0].strip()
         if len(corpo) > len(achados.get(m.group(1), "")):
             achados[m.group(1)] = corpo[:1600]
-    return [{"nome": n, "descricao": achados.get(n, "")} for n in PERICIAS_LIVRO]
+    return [{"nome": n, "descricao": achados.get(n, "")} for n in PERICIAS]
 
 
 # ------------------------------------------------------------------ principal
@@ -363,18 +444,23 @@ def main() -> int:
     ap = argparse.ArgumentParser(description="Gera o pacote de dados a partir dos seus PDFs.")
     ap.add_argument("pasta", help="pasta com os PDFs do Cosmere RPG")
     ap.add_argument("--saida", default="pacote.json", help="arquivo de saida (padrao: pacote.json)")
+    ap.add_argument("--tudo", action="store_true",
+                    help="indexa tambem fichas e material de personagem, normalmente ignorados")
     args = ap.parse_args()
 
     if not os.path.isdir(args.pasta):
         print(f"Nao achei a pasta: {args.pasta}")
         return 1
 
-    pdfs = sorted(
+    todos = sorted(
         os.path.join(args.pasta, f) for f in os.listdir(args.pasta)
         if f.lower().endswith(".pdf")
     )
+    pdfs = todos if args.tudo else [f for f in todos if not IGNORAR.search(os.path.basename(f))]
+    pulados = [os.path.basename(f) for f in todos if f not in pdfs]
+
     if not pdfs:
-        print("Nenhum PDF nessa pasta.")
+        print("Nenhum PDF para indexar nessa pasta.")
         return 1
 
     paginas = []
@@ -403,13 +489,16 @@ def main() -> int:
                 continue
             paginas.append({
                 "livro": rotulo,
-                "pagina": max(1, i + 1 + offset),   # numero impresso no livro
+                "pagina": max(1, i + 1 + offset),
                 "pdf": i + 1,
                 "titulos": achar_titulos(texto),
                 "texto": texto,
             })
             aproveitadas += 1
-        print(f"  {rotulo:20} {aproveitadas:4} páginas  (livro = PDF {offset:+d})")
+        print(f"  {rotulo:22} {aproveitadas:4} páginas  (livro = PDF {offset:+d})")
+
+    if pulados:
+        print(f"\n  ignorados (ficha ou material de personagem): {', '.join(pulados)}")
 
     if not paginas:
         print("\nNenhuma pagina com texto. Os PDFs podem ser digitalizacoes sem camada de texto.")
@@ -420,18 +509,23 @@ def main() -> int:
     conjuntos, culturas, pericias = [], [], []
 
     if regras:
-        talentos["heroicos"] = extrair_talentos(regras, CAP_HEROICAS, "heroica")
-        talentos["radiantes"] = extrair_talentos(regras, CAP_RADIANTES, "radiante")
-        talentos["cantor"] = extrair_talentos(regras, ARVORE_CANTOR, "cantor")
-        for t in talentos["cantor"]:
-            t["grupo"] = "Cantor"
+        dentro = lambda faixa: [p for p in regras if faixa[0] <= p["pagina"] <= faixa[1]]
+        crus_h = coletar_talentos(regras, CAP_HEROICAS, secoes_heroicas(dentro(CAP_HEROICAS)))
+        crus_r = coletar_talentos(regras, CAP_RADIANTES, secoes_radiantes(dentro(CAP_RADIANTES)))
+        crus_c = coletar_talentos(regras, ARVORE_CANTOR, [(ARVORE_CANTOR[0], "Cantor")])
+
+        # o regex de pre-requisito precisa saber quais nomes de talento existem
+        nomes = sorted({c["nome"] for c in crus_h + crus_r + crus_c})
+        regex_pre = montar_regex_prerequisito(nomes)
+
+        talentos["heroicos"] = concluir_talentos(crus_h, regex_pre)
+        talentos["radiantes"] = concluir_talentos(crus_r, regex_pre)
+        talentos["cantor"] = concluir_talentos(crus_c, regex_pre)
 
         achados_conj = extrair_blocos(regras, (240, 248), CONJUNTOS, "Conjunto")
         conjuntos = [{"nome": n, "descricao": achados_conj.get(n, ""), "pagina": 243} for n in CONJUNTOS]
-
         achados_cult = extrair_blocos(regras, (36, 48), CULTURAS, "Especialidade")
         culturas = [{"nome": n, "descricao": achados_cult.get(n, "")} for n in CULTURAS]
-
         pericias = extrair_pericias(regras)
 
     pacote = {
@@ -448,9 +542,13 @@ def main() -> int:
         json.dump(pacote, f, ensure_ascii=False, separators=(",", ":"))
 
     tamanho = os.path.getsize(args.saida) / 1e6
+    total = sum(len(v) for v in talentos.values())
+    sem_ativacao = sum(1 for v in talentos.values() for t in v if not t["ativacao"])
     print(f"\n{len(paginas)} páginas indexadas")
     print(f"talentos: {len(talentos['heroicos'])} heroicos, "
           f"{len(talentos['radiantes'])} Radiantes, {len(talentos['cantor'])} de cantor")
+    print(f"  sem ativação reconhecida: {sem_ativacao} de {total}")
+    print(f"perícias com descrição: {sum(1 for p in pericias if p['descricao'])} de {len(pericias)}")
     print(f"\nPronto: {os.path.abspath(args.saida)}  ({tamanho:.1f} MB)")
     print("Abra o site, vá na aba Regras e arraste esse arquivo para dentro.")
     return 0

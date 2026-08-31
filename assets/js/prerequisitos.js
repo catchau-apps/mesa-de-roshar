@@ -27,8 +27,11 @@ function avaliarClausula(texto, ficha) {
   if (m) return (ficha.nivel || 1) >= Number(m[1]);
 
   if (/falar o .*ideal/i.test(p)) {
-    // Ideais são jurados em jogo; a ficha guarda isso em texto livre.
-    return normalizar(ficha.ideais || '').includes(normalizar(p.replace(/^falar\s+/i, '')));
+    // Jurar um Ideal é fato de mesa, não de ficha. Com o campo "Ideais
+    // falados" vazio não dá para afirmar nem negar — vira "confira você".
+    const jurados = normalizar(ficha.ideais || '').trim();
+    if (!jurados) return null;
+    return jurados.includes(normalizar(p.replace(/^falar\s+o?\s*/i, '')));
   }
 
   if (/ancestralidade cantor/i.test(p)) return /cantor/i.test(ficha.ancestralidade || '');

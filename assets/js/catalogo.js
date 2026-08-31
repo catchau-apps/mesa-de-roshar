@@ -11,10 +11,69 @@ import { conferirPreRequisitos } from './prerequisitos.js';
 import { esc, recado } from './ui.js';
 
 const SITUACAO = {
-  atende:     { rotulo: 'você atende',        classe: 'etiqueta--luz' },
+  atende:     { rotulo: 'você atende',         classe: 'etiqueta--luz' },
   falta:      { rotulo: 'falta pré-requisito', classe: 'etiqueta--granada' },
-  indefinido: { rotulo: 'confira no livro',    classe: 'etiqueta--ambar' },
+  indefinido: { rotulo: 'confira com o MJ',    classe: 'etiqueta--ambar' },
 };
+
+const MARCA_CLAUSULA = {
+  true:  { sinal: '✓', titulo: 'você atende esta condição' },
+  false: { sinal: '✕', titulo: 'esta condição ainda não é atendida' },
+  null:  { sinal: '?', titulo: 'depende do que aconteceu na mesa — o app não tem como saber' },
+};
+
+/** As cláusulas de pré-requisito, com o sinal e a explicação de cada uma. */
+export function chipsDeClausulas(clausulas) {
+  if (!clausulas.length) {
+    return `<span data-ok="true" title="este talento não exige nada">✓ sem pré-requisito</span>`;
+  }
+  return clausulas.map((c) => {
+    const marca = MARCA_CLAUSULA[String(c.resultado)];
+    return `<span data-ok="${c.resultado}" title="${esc(marca.titulo)}">${marca.sinal} ${esc(c.texto)}</span>`;
+  }).join('');
+}
+
+/** Todos os talentos com este nome — o mesmo nome existe em ordens diferentes. */
+function acharTalentos(nome) {
+  const alvo = normalizar(nome);
+  return todosOsTalentos().filter((t) => normalizar(t.nome) === alvo);
+}
+
+/** A ficha do livro sobre um talento que já está na ficha do personagem. */
+export function abrirDescricaoDoTalento(nome, ficha) {
+  const achados = acharTalentos(nome);
+
+  const dlg = document.createElement('dialog');
+  dlg.innerHTML = `
+    <div class="dialogo__cabeca">
+      <h2>${esc(nome)}</h2>
+      <button class="btn btn--fantasma" type="button" data-fechar
+        aria-label="Fechar" style="margin-left:auto;width:38px;padding:0">✕</button>
+    </div>
+    <div class="dialogo__corpo" style="max-height:70vh;overflow:auto">
+      ${achados.length ? achados.map((t) => {
+        const { situacao, clausulas } = conferirPreRequisitos(t, ficha);
+        return `
+          <article class="talento" data-situacao="${situacao}" style="margin-bottom:.6rem">
+            <p class="talento__origem" style="margin-top:0">
+              ${esc(t.grupo || t.tipo)}${t.especializacao ? ' · ' + esc(t.especializacao) : ''}
+              ${t.pagina ? ' · p.' + t.pagina : ''}
+              ${t.ativacao ? ' · <strong>' + esc(t.ativacao) + '</strong>' : ''}
+            </p>
+            <p class="talento__pre">${chipsDeClausulas(clausulas)}</p>
+            <p class="talento__texto">${esc(t.descricao)}</p>
+          </article>`;
+      }).join('')
+      : `<p class="campo__dica">${pacoteAtual()
+          ? 'Esse talento não está no pacote — deve ser anotação sua. O texto fica por sua conta.'
+          : 'Instale o pacote de dados na aba Regras para ler a descrição do livro aqui.'}</p>`}
+    </div>`;
+  document.body.append(dlg);
+  const fechar = () => { dlg.close(); dlg.remove(); };
+  dlg.addEventListener('click', (ev) => { if (ev.target.closest('[data-fechar]')) fechar(); });
+  dlg.addEventListener('cancel', (ev) => { ev.preventDefault(); fechar(); });
+  dlg.showModal();
+}
 
 /** Todos os talentos do pacote, com o grupo já normalizado. */
 function todosOsTalentos() {
@@ -69,14 +128,9 @@ export function abrirCatalogoDeTalentos(ficha, aoEscolher) {
         <p class="talento__origem">
           ${esc(t.grupo || t.tipo)}${t.especializacao ? ' · ' + esc(t.especializacao) : ''}
           ${t.pagina ? ' · p.' + t.pagina : ''}
-          ${t.ativacao ? ' · ativação ' + esc(t.ativacao) : ''}
+          ${t.ativacao ? ' · <strong>' + esc(t.ativacao) + '</strong>' : ''}
         </p>
-        ${clausulas.length ? `
-          <p class="talento__pre">
-            ${clausulas.map((c) => `<span data-ok="${c.resultado}">${
-              c.resultado === true ? '✓' : c.resultado === false ? '✕' : '?'
-            } ${esc(c.texto)}</span>`).join('')}
-          </p>` : '<p class="talento__pre"><span data-ok="true">✓ sem pré-requisito</span></p>'}
+        <p class="talento__pre">${chipsDeClausulas(clausulas)}</p>
         <p class="talento__texto">${esc(t.descricao)}</p>
         <div class="talento__acoes">
           ${jaTem

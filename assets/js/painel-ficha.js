@@ -17,7 +17,8 @@ import { fichaAtual, salvar, descansoLongo } from './estado.js';
 import { rolarExpressao, sinal } from './dados.js';
 import { esc, recado, tremer, ligarAcoes, ligarEntradas, redesenharPreservandoFoco } from './ui.js';
 import { cartaoProgressao, subirDeNivel } from './assistente.js';
-import { abrirCatalogoDeTalentos, abrirDescricaoDaPericia, temCatalogo } from './catalogo.js';
+import { abrirCatalogoDeTalentos, abrirDescricaoDaPericia,
+         abrirDescricaoDoTalento } from './catalogo.js';
 
 let raiz;
 let aoRolarPericia = () => {};
@@ -321,11 +322,15 @@ function condicoesEEspecialidades(f) {
     </div>`;
 }
 
-function listaEtiquetas(lista, itens, marcador) {
+function listaEtiquetas(lista, itens, marcador, acaoAoTocar = '') {
+  const conteudo = (t) => acaoAoTocar
+    ? `<button type="button" class="etiqueta__abrir" data-acao="${acaoAoTocar}" data-item="${esc(t)}"
+         title="Ver o que o livro diz">${esc(t)}</button>`
+    : esc(t);
   return `
     <div class="etiquetas-folha">
       ${itens.length
-        ? itens.map((t, i) => `<span class="etiqueta">${esc(t)}
+        ? itens.map((t, i) => `<span class="etiqueta">${conteudo(t)}
             <button type="button" data-acao="tirar-item" data-lista="${lista}" data-indice="${i}"
               aria-label="Remover ${esc(t)}">×</button></span>`).join('')
         : '<span class="campo__dica" style="margin:0">Nada aqui ainda.</span>'}
@@ -363,7 +368,7 @@ function armasETalentos(f) {
 
       ${moldura(`
         <span class="rotulo">Talentos</span>
-        ${listaEtiquetas('talentos', f.talentos, 'Nome do talento')}
+        ${listaEtiquetas('talentos', f.talentos, 'Nome do talento', 'ver-talento')}
         <div class="entrada-folha" style="padding-top:0">
           <button type="button" data-acao="ver-talentos" style="width:100%">
             Buscar no livro…
@@ -597,6 +602,8 @@ function ligar() {
     },
 
     'ver-pericia'(alvo) { abrirDescricaoDaPericia(alvo.dataset.pericia); },
+
+    'ver-talento'(alvo) { abrirDescricaoDoTalento(alvo.dataset.item, fichaAtual()); },
 
     'subir-nivel'() { subirDeNivel(); },
 

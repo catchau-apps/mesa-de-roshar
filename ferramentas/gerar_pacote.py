@@ -47,9 +47,24 @@ LIVROS = [
 ]
 
 # Ficha preenchida e material de personagem sao do jogador, nao base de
-# conhecimento: indexa-los so suja a busca com dados de uma mesa.
+# conhecimento: indexa-los so suja a busca com dados de uma mesa. Ponha aqui
+# um pedaco do nome dos seus arquivos de mesa (o nome do personagem, por
+# exemplo), uma por linha, em ferramentas/meus_arquivos.txt. Esse arquivo fica
+# so na sua maquina: o .gitignore nao deixa ele subir para o repositorio.
+def _meus_arquivos() -> list[str]:
+    caminho = os.path.join(os.path.dirname(__file__), "meus_arquivos.txt")
+    if not os.path.exists(caminho):
+        return []
+    with open(caminho, encoding="utf-8") as f:
+        return [l.strip() for l in f if l.strip() and not l.startswith("#")]
+
+
+MEUS_ARQUIVOS = _meus_arquivos()
+
 IGNORAR = re.compile(
-    r"kash|ficha[- ]de[- ]personagem|character[- ]sheet|token|battlemap|mapa",
+    "|".join([*map(re.escape, MEUS_ARQUIVOS),
+              r"ficha[- ]de[- ]personagem", r"character[- ]sheet",
+              r"token", r"battlemap", r"mapa"]),
     re.IGNORECASE,
 )
 

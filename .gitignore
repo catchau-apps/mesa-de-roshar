@@ -13,3 +13,4 @@ __pycache__/
 
 # build de arquivo único (gerado por ferramentas/gerar_previa.py)
 previa.html
+ferramentas/meus_arquivos.txt

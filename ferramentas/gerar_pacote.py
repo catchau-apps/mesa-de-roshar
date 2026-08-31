@@ -123,6 +123,12 @@ def rotular(nome_arquivo: str) -> str:
 ANCORA = re.compile(r"Pr[ée]-?\s?requisitos?:", re.I)
 ATIVACAO = re.compile(r"Ativa[çc][ãa]o:\s*([^\n]{0,14})", re.I)
 LEGENDA = re.compile(r"[íi]cone\s+legenda|Cap[íi]tulo\s+\d+:|CORE RULEBOOK", re.I)
+# Na arvore de talentos alguns nomes vem sem linha de pre-requisito, entao a
+# descricao do anterior engolia o proximo. Um cabecalho ali e sempre glifo de
+# custo seguido de nome com maiuscula.
+CABECALHO_ARVORE = re.compile(
+    r"\n(?=[▶▷↻★∞*0-9]{1,3}\s*[A-ZÁÂÃÉÊÍÓÔÕÚÇ][a-zà-ú])"
+)
 LEGENDA_CUSTO = re.compile(
     r"^(?:Sempre ativo|Ação livre|Ativação especial|Reação|\d+\s*aç(?:ão|ões))\s*", re.I
 )
@@ -155,6 +161,8 @@ def limpar_nome(n: str) -> str:
     n = LEGENDA_CUSTO.sub("", n)
     n = re.sub(r"^[▶▷↻★∞*0-9\s]+", "", n)
     n = re.sub(r"\s*\([^)]*\)\s*$", "", n)
+    if n.count(")") > n.count("("):          # sobra de titulo quebrado em duas linhas
+        n = re.sub(r"\s*\(.*$", "", n.split(")")[0])
     return KERNING.sub(r"\1\2", n).strip(" .:-")
 
 
@@ -177,8 +185,13 @@ def pegar_nome(antes: str) -> str:
     nome = linhas[-1]
     if len(linhas) >= 2:
         ant = linhas[-2]
-        if (len(ant) <= 30 and len(nome) <= 30 and not re.search(r"[.:;!?]$", ant)
-                and len(ant) + len(nome) <= 46 and not ANCORA.search(ant)):
+        # "Primeiro Ideal (talentochave" + "de Teceluz)": o parenteses aberto na
+        # linha de cima e prova de que o titulo continua embaixo
+        parenteses_aberto = ant.count("(") > ant.count(")")
+        cabe = (len(ant) <= 30 and len(nome) <= 30
+                and len(ant) + len(nome) <= 46
+                and not re.search(r"[.:;!?]$", ant))
+        if (cabe or parenteses_aberto) and not ANCORA.search(ant):
             nome = ant + " " + nome
     return nome
 
@@ -268,6 +281,7 @@ def extrair_talentos(paginas, faixa, tipo):
             if not nome or len(nome) < 3 or LIXO_NOME.search(nome):
                 continue
             descricao = LEGENDA.split(limpar_corrido(desc))[0].strip()
+            descricao = CABECALHO_ARVORE.split(descricao)[0].strip()
             descricao = re.sub(r"\s*Cap[íi]tulo\s+\d+:.*$", "", descricao, flags=re.S).strip()
             if len(descricao) < 25:
                 continue
@@ -310,6 +324,37 @@ def extrair_blocos(paginas, faixa, nomes, prefixo):
         if len(corpo) > len(achados.get(m.group(1), "")):
             achados[m.group(1)] = corpo[:700]
     return achados
+
+
+PERICIAS_LIVRO = [
+    "Agilidade", "Armamento Leve", "Armamento Pesado", "Atletismo", "Furtividade",
+    "Ladroagem", "Dedução", "Disciplina", "Intimidação", "Manufatura", "Medicina",
+    "Saber", "Dissimulação", "Intuição", "Liderança", "Percepção", "Persuasão",
+    "Sobrevivência",
+]
+
+
+def extrair_pericias(paginas):
+    """Descricao de cada pericia (cap.3). Cada uma abre com 'Nome (Atributo)'."""
+    quebra = chr(10)
+    texto = quebra.join(
+        p["texto"] for p in sorted(paginas, key=lambda x: x["pagina"])
+        if 58 <= p["pagina"] <= 68
+    )
+    nomes = "|".join(re.escape(n) for n in PERICIAS_LIVRO)
+    atributos = "Força|Velocidade|Intelecto|Vontade|Consciência|Presença"
+    padrao = re.compile(
+        rf"^({nomes})\s*\((?:{atributos})\)\s*$(.*?)"
+        rf"(?=^(?:{nomes})\s*\(|\Z)",
+        re.S | re.M,
+    )
+    achados = {}
+    for m in padrao.finditer(texto):
+        corpo = limpar_corrido(m.group(2))
+        corpo = LEGENDA.split(corpo)[0].strip()
+        if len(corpo) > len(achados.get(m.group(1), "")):
+            achados[m.group(1)] = corpo[:1600]
+    return [{"nome": n, "descricao": achados.get(n, "")} for n in PERICIAS_LIVRO]
 
 
 # ------------------------------------------------------------------ principal
@@ -372,7 +417,7 @@ def main() -> int:
 
     regras = [p for p in paginas if p["livro"] == "Regras"]
     talentos = {"heroicos": [], "radiantes": [], "cantor": []}
-    conjuntos, culturas = [], []
+    conjuntos, culturas, pericias = [], [], []
 
     if regras:
         talentos["heroicos"] = extrair_talentos(regras, CAP_HEROICAS, "heroica")
@@ -387,6 +432,8 @@ def main() -> int:
         achados_cult = extrair_blocos(regras, (36, 48), CULTURAS, "Especialidade")
         culturas = [{"nome": n, "descricao": achados_cult.get(n, "")} for n in CULTURAS]
 
+        pericias = extrair_pericias(regras)
+
     pacote = {
         "formato": FORMATO,
         "versao": VERSAO,
@@ -394,6 +441,7 @@ def main() -> int:
         "talentos": talentos,
         "conjuntos": conjuntos,
         "culturas": culturas,
+        "pericias": pericias,
     }
 
     with io.open(args.saida, "w", encoding="utf-8") as f:

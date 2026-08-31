@@ -19,7 +19,8 @@ BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 # ordem de carga: cada modulo so pode depender dos anteriores
 MODULOS = [
-    "sistema", "dados", "ui", "pacote", "estado",
+    "sistema", "dados", "ui", "pacote", "prerequisitos", "estado",
+    "assistente", "catalogo",
     "painel-ficha", "painel-dados", "painel-regras",
     "painel-combate", "painel-referencia", "construtor", "app",
 ]

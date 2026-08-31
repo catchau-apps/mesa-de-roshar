@@ -10,8 +10,18 @@ combate. Roda no navegador, funciona sem internet e não pede conta nenhuma.
 
 ## O que ele faz
 
-- **Ficha** — você mexe nos atributos e o resto se ajusta sozinho: defesas,
-  vida, foco, taxa de movimento, dado de recuperação, distância dos sentidos.
+- **Ficha** — no layout da ficha oficial. Você mexe nos atributos e o resto se
+  ajusta sozinho: defesas, vida, foco, movimento, dado de recuperação,
+  levantamento e distância dos sentidos.
+- **Painel de progressão** — responde sem abrir o livro: quantos pontos de
+  atributo e graduações você ainda tem para distribuir, quantos talentos deve
+  ter no seu nível, e qual é a graduação máxima do seu patamar. O botão de
+  subir de nível aplica a vida e lista o que ficou para escolher.
+- **Catálogo de talentos** — todos os talentos do seu pacote, buscáveis e
+  filtráveis por trilha ou ordem, com a descrição inteira e o pré-requisito
+  conferido contra a sua ficha (✓ atende, ✕ falta). Um toque manda para a ficha.
+- **Descrição das perícias** — toque no nome da perícia para ler o que o livro
+  diz sobre ela.
 - **Construtor em 8 passos** — conta os 12 pontos de atributo, respeita os
   limites da criação e só oferece talento cujo pré-requisito você cumpre.
   Dá para fechar no meio e retomar depois.
@@ -64,7 +74,13 @@ O script escreve um `pacote.json`. No site, abra a aba **Regras** e arraste o
 arquivo para dentro. Ele fica guardado no IndexedDB do seu navegador e não sai
 dali — este projeto não tem servidor para onde mandar nada.
 
-O `pacote.json` está no `.gitignore`. Não faça commit dele.
+O `pacote.json` está no `.gitignore`. Não faça commit dele **em repositório
+público** — publicar o texto dos livros é redistribuição.
+
+Se o repositório for **privado** e todo mundo na sua mesa tiver os livros, aí
+dá para versionar o pacote junto e ninguém precisa gerar o seu: tire a linha
+`pacote.json` do `.gitignore`. A ferramenta não muda; muda só quem consegue
+baixar.
 
 O gerador cuida sozinho de algumas armadilhas do PDF: descobre quantas páginas
 o PDF está adiantado em relação à numeração impressa, junta palavras quebradas
@@ -76,17 +92,20 @@ por hífen no fim da linha e corrige a ligadura "fi" que sai como F maiúsculo.
 index.html              página inicial
 app.html                a ferramenta
 assets/
-  css/  base · componentes · layout · ficha · site
-  js/   sistema · estado · dados · pacote · ui
+  css/  base · componentes · layout · ficha · folha · site
+  js/   sistema · estado · dados · pacote · ui · prerequisitos
+        assistente (progressão) · catalogo (talentos e perícias)
         painel-ficha · painel-dados · painel-regras
         painel-combate · painel-referencia · construtor · app
 ferramentas/
   gerar_pacote.py       lê os seus PDFs e monta o pacote de dados
+  gerar_previa.py       empacota o site num HTML só, para conferir o visual
 ```
 
 `assets/js/sistema.js` concentra a mecânica e cita a página do Guia de Regras
-de onde cada fórmula veio. As páginas citadas são as **numeradas no livro**,
-não as do PDF.
+de onde cada fórmula veio, incluindo a tabela Evolução de Personagem (p.25) que
+alimenta o painel de progressão e os dois fluxos de cada ordem Radiante. As
+páginas citadas são as **numeradas no livro**, não as do PDF.
 
 ## Licença
 

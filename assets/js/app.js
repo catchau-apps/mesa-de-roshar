@@ -156,6 +156,7 @@ async function iniciar() {
   // eventos que os painéis emitem entre si
   document.addEventListener('ir-para', (ev) => irPara(ev.detail));
   document.addEventListener('ficha:renomeada', desenharSeletor);
+  document.addEventListener('ficha:subiu-nivel', () => { desenharFicha(); desenharSeletor(); });
   document.addEventListener('construtor:fechou', () => { atualizarBotaoRascunho(); desenharFicha(); });
   document.addEventListener('pacote:mudou', () => { atualizarBotaoRascunho(); });
   document.addEventListener('buscar-regra', (ev) => {

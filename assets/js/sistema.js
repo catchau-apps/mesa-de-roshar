@@ -213,3 +213,80 @@ export const TRILHAS = [
 ];
 
 export const ANCESTRALIDADES = ['Humano', 'Cantor'];
+
+/* =========================================================================
+   Evolução de personagem (tabela do cap.1, p.25)
+   ========================================================================= */
+
+/* Vida ganha por nível. "+FOR" marca os níveis em que a Força entra de novo
+   na conta — começo de cada patamar. */
+const VIDA_POR_NIVEL = {
+  2: 5, 3: 5, 4: 5, 5: 5,
+  6: 4, 7: 4, 8: 4, 9: 4, 10: 4,
+  11: 3, 12: 3, 13: 3, 14: 3, 15: 3,
+  16: 2, 17: 2, 18: 2, 19: 2, 20: 2,
+};
+const NIVEIS_COM_FORCA = [6, 11, 16];           // ganham +FOR além do valor fixo
+const NIVEIS_DE_ATRIBUTO = [3, 6, 9, 12, 15, 18];
+const NIVEIS_DE_TALENTO_ANCESTRAL = [1, 6, 11, 16, 21];
+
+/** O que o personagem ganha ao chegar neste nível. */
+export function ganhosDoNivel(nivel, forca = 0) {
+  if (nivel <= 1) {
+    return {
+      nivel: 1,
+      vida: 10 + forca, vidaTexto: `10 + FOR (${10 + forca})`,
+      pontosAtributo: CRIACAO.pontosAtributo,
+      graduacoes: CRIACAO.graduacoes,
+      graduacoesTexto: `${CRIACAO.graduacoes} + 1 da trilha inicial`,
+      talentos: 1, talentoAncestral: true,
+      talentoTexto: 'talento-chave da trilha inicial',
+      escolhaEntreGraduacaoOuTalento: false,
+    };
+  }
+  const acimaDe20 = nivel >= 21;
+  const base = acimaDe20 ? 1 : (VIDA_POR_NIVEL[nivel] || 0);
+  const comForca = NIVEIS_COM_FORCA.includes(nivel);
+  return {
+    nivel,
+    vida: base + (comForca ? forca : 0),
+    vidaTexto: comForca ? `+${base} + FOR (+${base + forca})` : `+${base}`,
+    pontosAtributo: NIVEIS_DE_ATRIBUTO.includes(nivel) ? 1 : 0,
+    graduacoes: acimaDe20 ? 1 : 2,
+    graduacoesTexto: acimaDe20 ? '1 graduação OU 1 talento' : '+2 graduações',
+    talentos: acimaDe20 ? 0 : 1,
+    talentoAncestral: NIVEIS_DE_TALENTO_ANCESTRAL.includes(nivel),
+    talentoTexto: acimaDe20 ? 'ou 1 talento, no lugar da graduação' : '+1 talento',
+    escolhaEntreGraduacaoOuTalento: acimaDe20,
+  };
+}
+
+/** Quanto o personagem deve ter acumulado até o nível atual. */
+export function orcamentoAte(nivel, forca = 0) {
+  const total = {
+    pontosAtributo: 0, graduacoes: 0, talentos: 0,
+    talentosAncestrais: 0, vida: 0,
+  };
+  for (let n = 1; n <= nivel; n += 1) {
+    const g = ganhosDoNivel(n, forca);
+    total.pontosAtributo += g.pontosAtributo;
+    total.graduacoes += g.graduacoes;
+    total.talentos += g.talentos;
+    total.vida += g.vida;
+    if (g.talentoAncestral) total.talentosAncestrais += 1;
+  }
+  total.graduacoes += 1;                  // a graduação grátis da trilha inicial
+  total.talentosTotais = total.talentos + total.talentosAncestrais;
+  return total;
+}
+
+/** O que já está gasto na ficha, para comparar com o orçamento. */
+export function gastoNaFicha(f) {
+  const graduacoes = Object.values(f.pericias).reduce((s, v) => s + v, 0)
+                   + Object.values(f.fluxos).reduce((s, v) => s + v, 0);
+  return {
+    pontosAtributo: ATRIBUTOS.reduce((s, a) => s + (f.atributos[a.id] || 0), 0),
+    graduacoes,
+    talentos: f.talentos.length,
+  };
+}

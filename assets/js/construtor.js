@@ -9,7 +9,8 @@ import {
   movimento, dadoRecuperacao, sentidos,
 } from './sistema.js';
 import { ST, salvar, fichaNova, adicionarFicha } from './estado.js';
-import { pacoteAtual, normalizar } from './pacote.js';
+import { pacoteAtual } from './pacote.js';
+import { podeEscolher } from './prerequisitos.js';
 import { esc, pontos, recado, tremer, confirmar, ligarAcoes, ligarEntradas, redesenharPreservandoFoco } from './ui.js';
 import { sinal } from './dados.js';
 
@@ -275,33 +276,18 @@ function pPericias() {
       </div>`).join('')}`;
 }
 
-/* --- pré-requisitos (p.18) ------------------------------------------------
-   Confere graduação de perícia, talento anterior da árvore, nível e Ideais.
-   O que não der para interpretar fica de fora: melhor faltar opção do que
-   oferecer algo inválido.                                                  */
-function atendePreRequisito(talento) {
-  const pr = (talento.preRequisitos || '').trim();
-  if (!pr || /^nenhum/i.test(pr)) return true;
-  return pr.split(';').every((parte) => umPreRequisito(parte.trim()));
-}
+/* Os pré-requisitos são conferidos pelo mesmo módulo que a ficha usa; aqui o
+   "personagem" é o rascunho, que ainda não tem nível nem ideais. */
+const fichaDoRascunho = () => ({
+  nivel: 1,
+  ancestralidade: rascunho.ancestralidade,
+  pericias: rascunho.pericias,
+  fluxos: {},
+  talentos: rascunho.talentos,
+  ideais: '',
+});
 
-function umPreRequisito(p) {
-  if (!p) return true;
-  let m = /^n[íi]vel\s*(\d+)/i.exec(p);
-  if (m) return 1 >= Number(m[1]);
-  if (/falar o .*ideal/i.test(p)) return false;
-  if (/ancestralidade cantor/i.test(p)) return rascunho.ancestralidade === 'Cantor';
-
-  m = /talento(?:-?\s?chave)?\s+(.+)$/i.exec(p);
-  if (m) return rascunho.talentos.some((t) => normalizar(t) === normalizar(m[1].trim()));
-
-  m = /^(.+?)\s*(\d+)\s*\+?$/.exec(p);
-  if (m) {
-    const alvo = PERICIAS.find((x) => normalizar(x.nome) === normalizar(m[1].trim()));
-    if (alvo) return (rascunho.pericias[alvo.nome] || 0) >= Number(m[2]);
-  }
-  return false;
-}
+const atendePreRequisito = (talento) => podeEscolher(talento, fichaDoRascunho());
 
 function pTalentos() {
   const cantor = rascunho.ancestralidade === 'Cantor';

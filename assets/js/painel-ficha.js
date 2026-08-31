@@ -16,6 +16,8 @@ import {
 import { fichaAtual, salvar, descansoLongo } from './estado.js';
 import { rolarExpressao, sinal } from './dados.js';
 import { esc, recado, tremer, ligarAcoes, ligarEntradas, redesenharPreservandoFoco } from './ui.js';
+import { cartaoProgressao, subirDeNivel } from './assistente.js';
+import { abrirCatalogoDeTalentos, abrirDescricaoDaPericia, temCatalogo } from './catalogo.js';
 
 let raiz;
 let aoRolarPericia = () => {};
@@ -82,6 +84,7 @@ export function desenharFicha() {
       ${cabecalho(f)}
       ${faixaAtributos(f)}
       ${recursos(f)}
+      ${cartaoProgressao(f)}
       ${pericias(f)}
       ${derivados(f)}
       ${condicoesEEspecialidades(f)}
@@ -256,7 +259,9 @@ function linhaPericia(f, p) {
     <div class="linha-pericia">
       <button type="button" class="linha-pericia__mod" data-acao="rolar-pericia" data-pericia="${esc(p.nome)}"
         aria-label="Rolar ${esc(p.nome)}"><span class="num">${sinal(modificador(f, p))}</span></button>
-      <span class="linha-pericia__nome">${esc(p.nome)} <small>(${sigla})</small></span>
+      <button type="button" class="linha-pericia__nome linha-pericia__nome--link"
+        data-acao="ver-pericia" data-pericia="${esc(p.nome)}"
+        title="Ver a descrição do livro">${esc(p.nome)} <small>(${sigla})</small></button>
       <span class="linha-pericia__circulos">${circulos(p.nome, tipo, grad)}</span>
     </div>`;
 }
@@ -358,7 +363,12 @@ function armasETalentos(f) {
 
       ${moldura(`
         <span class="rotulo">Talentos</span>
-        ${listaEtiquetas('talentos', f.talentos, 'Nome do talento')}`)}
+        ${listaEtiquetas('talentos', f.talentos, 'Nome do talento')}
+        <div class="entrada-folha" style="padding-top:0">
+          <button type="button" data-acao="ver-talentos" style="width:100%">
+            Buscar no livro…
+          </button>
+        </div>`)}
     </div>`;
 }
 
@@ -466,6 +476,11 @@ function atualizarSaidas(f) {
   escreve('deflexao', f.deflexao || 0);
   escreve('cabecalho',
     `Nível ${f.nivel} · patamar ${patamar(f)}${f.trilhas ? ' · ' + f.trilhas : ''}`);
+
+  // O painel de progressão muda inteiro com o nível, e não tem campo de texto
+  // dentro — dá para trocá-lo sem atrapalhar quem está digitando.
+  const progressao = raiz.querySelector('.progressao');
+  if (progressao) progressao.outerHTML = cartaoProgressao(f);
 }
 
 /* ---------------------------------------------------------------- ações */
@@ -572,6 +587,18 @@ function ligar() {
       fichaAtual()[alvo.dataset.lista].splice(Number(alvo.dataset.indice), 1);
       salvar(); desenharFicha();
     },
+
+    'ver-talentos'() {
+      abrirCatalogoDeTalentos(fichaAtual(), (nome) => {
+        const f = fichaAtual();
+        if (!f.talentos.includes(nome)) f.talentos.push(nome);
+        salvar(); desenharFicha();
+      });
+    },
+
+    'ver-pericia'(alvo) { abrirDescricaoDaPericia(alvo.dataset.pericia); },
+
+    'subir-nivel'() { subirDeNivel(); },
 
     'novo-objetivo'() {
       fichaAtual().objetivos.push({ texto: '', progresso: 0 });

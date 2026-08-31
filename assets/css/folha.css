@@ -330,3 +330,76 @@
 
 /* o campo de nível fica no meio da caixa, como os outros da ficha */
 .folha input[inputmode="numeric"]{ font-variant-numeric:tabular-nums }
+
+/* ---------- painel de progressão ---------- */
+.medidas{ display:grid; gap:.6rem; grid-template-columns:1fr }
+@media (min-width:620px){ .medidas{ grid-template-columns:repeat(3,1fr) } }
+.medida{
+  padding:.6rem .7rem; border-radius:var(--r-p);
+  background:var(--superficie-2); border:1px solid var(--borda);
+  border-left:3px solid var(--borda-forte);
+}
+.medida[data-estado="certo"]{ border-left-color:var(--verde) }
+.medida[data-estado="sobrando"]{ border-left-color:var(--ambar) }
+.medida[data-estado="excedido"]{ border-left-color:var(--granada) }
+.medida__rotulo{
+  display:block; font-size:.62rem; font-weight:700; letter-spacing:.08em;
+  text-transform:uppercase; color:var(--tinta-3);
+}
+.medida__conta{ display:block; font-family:var(--f-titulo); font-size:1.35rem; font-weight:600; line-height:1.2 }
+.medida__conta small{ font-size:.7rem; color:var(--tinta-3); font-family:var(--f-texto) }
+.medida__recado{ display:block; font-size:.75rem; font-weight:650 }
+.medida[data-estado="certo"] .medida__recado{ color:var(--verde) }
+.medida[data-estado="sobrando"] .medida__recado{ color:var(--ambar) }
+.medida[data-estado="excedido"] .medida__recado{ color:var(--granada) }
+.medida__dica{ display:block; font-size:.7rem; color:var(--tinta-3); margin-top:.15rem; line-height:1.35 }
+
+.ganhos{ list-style:none; margin:.5rem 0 0; padding:0; display:grid; gap:.4rem }
+.ganhos li{
+  display:flex; gap:.75rem; align-items:baseline;
+  padding:.45rem .6rem; border-radius:var(--r-p);
+  background:var(--superficie-2); border:1px solid var(--borda);
+}
+.ganhos b{
+  flex:none; min-width:8.5rem; font-size:.68rem; font-weight:700;
+  letter-spacing:.08em; text-transform:uppercase; color:var(--tinta-3);
+}
+.ganhos span{ font-size:.9rem }
+
+/* nome de perícia clicável */
+.linha-pericia__nome--link{
+  border:none; background:none; padding:0; cursor:pointer; text-align:left;
+  font:inherit; color:inherit; border-bottom:1px dashed transparent;
+}
+.linha-pericia__nome--link:hover{ color:var(--luz); border-bottom-color:var(--luz) }
+
+/* ---------- catálogo de talentos ---------- */
+dialog.catalogo{
+  max-width:min(760px, calc(100vw - 1.5rem));
+  width:100%; height:min(88vh, 900px);
+  display:flex; flex-direction:column; padding:0;
+}
+dialog.catalogo:not([open]){ display:none }
+.catalogo__topo{ padding:1rem 1.1rem .8rem; border-bottom:1px solid var(--borda); background:var(--superficie) }
+.catalogo__lista{ flex:1; overflow-y:auto; padding:1rem 1.1rem 1.25rem; display:grid; gap:.7rem }
+
+.talento{
+  padding:.85rem 1rem; border-radius:var(--r-m);
+  background:var(--superficie-2); border:1px solid var(--borda);
+  border-left:3px solid var(--borda-forte);
+}
+.talento[data-situacao="atende"]{ border-left-color:var(--luz) }
+.talento[data-situacao="falta"]{ border-left-color:var(--granada) }
+.talento[data-situacao="indefinido"]{ border-left-color:var(--ambar) }
+.talento__topo{ display:flex; align-items:center; gap:.6rem; flex-wrap:wrap }
+.talento__topo h3{ font-size:1.02rem }
+.talento__origem{ margin:.15rem 0 .4rem; font-size:.75rem; color:var(--tinta-3) }
+.talento__pre{ margin:0 0 .5rem; display:flex; flex-wrap:wrap; gap:.4rem; font-size:.78rem }
+.talento__pre span{
+  padding:.12rem .5rem; border-radius:999px;
+  background:var(--papel); border:1px solid var(--borda);
+}
+.talento__pre span[data-ok="true"]{ color:var(--verde); border-color:color-mix(in srgb,var(--verde) 40%,transparent) }
+.talento__pre span[data-ok="false"]{ color:var(--granada); border-color:color-mix(in srgb,var(--granada) 40%,transparent) }
+.talento__texto{ margin:0; font-size:.88rem; line-height:1.6; color:var(--tinta-2); white-space:pre-wrap }
+.talento__acoes{ margin-top:.6rem }

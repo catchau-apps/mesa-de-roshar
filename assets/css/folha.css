@@ -246,14 +246,30 @@
 }
 
 /* armas */
-.arma-folha{ display:grid; gap:.3rem; padding:.45rem .55rem;
-  grid-template-columns:minmax(0,2fr) minmax(0,1.4fr) 60px auto }
+/* A caixa de Armas fica na coluna estreita da ficha, e continua estreita numa
+   tela grande — quem manda no layout aqui e' a largura da CAIXA, nao a da
+   janela. Por isso container query, e nao media query.
+   O padrao e' o nome da arma numa linha e o resto embaixo; so quando a caixa
+   tem folga a linha vira uma so, com "Armamento Pesado" cabendo inteiro. */
+.caixa-armas > div{ container-type:inline-size }
+.arma-folha{ display:grid; gap:.3rem .4rem; padding:.45rem .55rem;
+  grid-template-columns:minmax(0,1fr) 66px auto }
+.arma-folha > :first-child{ grid-column:1 / -1 }
+@container (min-width:440px){
+  .arma-folha{ grid-template-columns:minmax(0,1.4fr) minmax(0,1.7fr) 66px auto }
+  .arma-folha > :first-child{ grid-column:auto }
+}
 .arma-folha + .arma-folha{ border-top:1px solid var(--borda) }
 .arma-folha input,
 .arma-folha select{
   border-bottom:1px solid var(--borda); font-size:.82rem; padding:.15rem .2rem; min-height:30px;
 }
-.arma-folha select{ background-position:calc(100% - .7rem) .85rem, calc(100% - .45rem) .85rem }
+/* O padding a direita reserva o lugar da setinha; sem ele o texto passa por
+   baixo dela, que era o que cortava "Armamento Leve". */
+.arma-folha select{
+  padding-right:1.5rem; text-overflow:ellipsis;
+  background-position:calc(100% - .8rem) .85rem, calc(100% - .55rem) .85rem;
+}
 .arma-folha__acoes{ display:flex; gap:.25rem }
 .arma-folha__acoes button{
   padding:.2rem .45rem; font-size:.72rem; border-radius:5px; cursor:pointer;
@@ -262,7 +278,7 @@
 }
 .arma-folha__acoes button:hover{ background:var(--luz); border-color:var(--luz); color:#fff }
 .arma-folha__cabecalho{
-  display:grid; grid-template-columns:minmax(0,2fr) minmax(0,1.4fr) 60px auto;
+  display:none; grid-template-columns:minmax(0,1.5fr) minmax(0,1.6fr) 66px auto;
   gap:.3rem; padding:.3rem .55rem 0;
   font-size:.58rem; font-weight:700; letter-spacing:.08em;
   text-transform:uppercase; color:var(--tinta-3);
@@ -304,9 +320,9 @@
 .folha__verso::before,
 .folha__verso::after{ content:""; flex:1; height:1px; background:var(--borda) }
 
+@container (min-width:440px){ .arma-folha__cabecalho{ display:grid } }
+
 @media (max-width:520px){
-  .arma-folha,
-  .arma-folha__cabecalho{ grid-template-columns:1fr 1fr }
   .arma-folha__acoes{ grid-column:1/-1 }
   .linha-pericia__circulos button{ width:18px; height:18px }
   .atr-caixa__passos button{ min-height:32px }

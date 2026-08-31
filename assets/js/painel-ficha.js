@@ -364,7 +364,7 @@ function armasETalentos(f) {
           </div>`).join('')}
         <div class="entrada-folha">
           <button type="button" data-acao="nova-arma">+ Arma</button>
-        </div>`)}
+        </div>`, 'caixa-armas')}
 
       ${moldura(`
         <span class="rotulo">Talentos</span>

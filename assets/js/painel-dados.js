@@ -85,8 +85,7 @@ export function desenharDados() {
               <span class="campo__rotulo">Perícia</span>
               <select data-campo="pericia">
                 <option value="">— livre —</option>
-                ${lista.map((p) => `<option value="${esc(p.nome)}" ${escolha.rotulo === p.nome ? 'selected' : ''}>
-                  ${esc(p.nome)} (${sinal(modificador(f, p))})</option>`).join('')}
+                ${lista.map((p) => `<option value="${esc(p.nome)}"${escolha.rotulo === p.nome ? ' selected' : ''}>${esc(p.nome)} (${sinal(modificador(f, p))})</option>`).join('')}
               </select>
             </label>
             <label class="campo">

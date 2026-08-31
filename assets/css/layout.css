@@ -94,7 +94,13 @@
    até 23 px de largura. O seletor encolhe; os botões, não. */
 .cabecalho__acoes > .btn{ flex:none }
 .cabecalho__acoes > select{ min-width:0; flex:1 1 auto }
-@media (max-width:479px){
-  .cabecalho__acoes > select{ max-width:120px }
-  .marca__texto span{ display:none }
+/* Numa tela estreita o nome do personagem vale mais que o nome do site: o
+   texto da marca sai, fica so o glifo, e o seletor herda o espaco. A setinha
+   tambem ocupa menos, senao o nome nao cabe no que sobra. */
+@media (max-width:560px){
+  .marca__texto{ display:none }
+  .cabecalho__acoes > select{
+    max-width:none; flex:1 1 auto; padding-right:1.6rem;
+    background-position:calc(100% - .85rem) 1.05rem, calc(100% - .6rem) 1.05rem;
+  }
 }

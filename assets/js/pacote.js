@@ -36,8 +36,10 @@ export const normalizar = (s) =>
   String(s ?? '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
 
 /* O pacote na memória, já com o texto normalizado para a busca não refazer
-   esse trabalho a cada tecla. */
-export let PACOTE = null;
+   esse trabalho a cada tecla. É lido por um acessor, e não por um export
+   mutável: binding que muda depois do import é fonte de bug silencioso. */
+let PACOTE = null;
+export const pacoteAtual = () => PACOTE;
 
 export function validarPacote(dados) {
   if (!dados || typeof dados !== 'object') throw new Error('Arquivo vazio ou ilegível.');

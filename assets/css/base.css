@@ -5,24 +5,26 @@
    ========================================================================= */
 
 :root{
-  /* --- neutros (claro) --- */
-  --papel:        #f6f2ea;
-  --papel-2:      #efe9dd;
-  --superficie:   #fffdf9;
-  --superficie-2: #f2ece1;
-  --borda:        #ddd3c2;
-  --borda-forte:  #c6b9a3;
-  --tinta:        #26211b;
-  --tinta-2:      #5a5145;
-  --tinta-3:      #8a7f6f;
+  /* --- neutros (claro) ---
+     Pedra, não pergaminho: Roshar é rocha lascada e tempestade. O viés
+     verde-acinzentado tira o tom de papel velho e faz o âmbar saltar. */
+  --papel:        #eef0ea;
+  --papel-2:      #e4e7df;
+  --superficie:   #fafbf7;
+  --superficie-2: #e8ebe3;
+  --borda:        #d1d6ca;
+  --borda-forte:  #b2b9a9;
+  --tinta:        #1d211c;
+  --tinta-2:      #4b524a;
+  --tinta-3:      #6a7168;
 
   /* --- acentos --- */
-  --ambar:        #a8681a;   /* esferas infundidas */
+  --ambar:        #a05f10;   /* esferas infundidas */
   --ambar-claro:  #d99a3c;
-  --ambar-fundo:  #f7ecd8;
-  --luz:          #17706a;   /* luz das tempestades */
+  --ambar-fundo:  #f6ead2;
+  --luz:          #0f6b63;   /* luz das tempestades */
   --luz-clara:    #2f9c93;
-  --luz-fundo:    #e2f0ee;
+  --luz-fundo:    #dfeeeb;
   --granada:      #a3323f;
   --granada-fundo:#f8e4e4;
   --verde:        #3f7d4e;
@@ -59,7 +61,7 @@
   --borda-forte:  #4a4356;
   --tinta:        #ece6df;
   --tinta-2:      #b3a99c;
-  --tinta-3:      #857c72;
+  --tinta-3:      #948b80;
 
   --ambar:        #e3a44f;
   --ambar-claro:  #f0c078;

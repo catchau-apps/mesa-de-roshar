@@ -6,7 +6,7 @@ import {
   ACOES, REACOES, CONDICOES, DIFICULDADES, LESOES,
   OPORTUNIDADES, COMPLICACOES,
 } from './sistema.js';
-import { PACOTE } from './pacote.js';
+import { pacoteAtual } from './pacote.js';
 import { esc, ligarAcoes } from './ui.js';
 
 let raiz;
@@ -21,7 +21,7 @@ const item = (nome, custo, texto) => `
     <div class="linha" style="gap:.5rem">
       ${custo ? `<span class="etiqueta etiqueta--ambar" style="font-family:var(--f-num)">${esc(custo)}</span>` : ''}
       <strong style="font-size:.95rem">${esc(nome)}</strong>
-      ${PACOTE ? `<button class="btn btn--pequeno btn--fantasma" data-acao="ver" data-termo="${esc(nome)}"
+      ${pacoteAtual() ? `<button class="btn btn--pequeno btn--fantasma" data-acao="ver" data-termo="${esc(nome)}"
         style="margin-left:auto;color:var(--luz)">ver no livro</button>` : ''}
     </div>
     <p style="margin:.25rem 0 0;font-size:.88rem;color:var(--tinta-2)">${esc(texto)}</p>

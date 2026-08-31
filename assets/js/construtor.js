@@ -9,7 +9,7 @@ import {
   movimento, dadoRecuperacao, sentidos,
 } from './sistema.js';
 import { ST, salvar, fichaNova, adicionarFicha } from './estado.js';
-import { PACOTE, normalizar } from './pacote.js';
+import { pacoteAtual, normalizar } from './pacote.js';
 import { esc, pontos, recado, tremer, confirmar, ligarAcoes, ligarEntradas, redesenharPreservandoFoco } from './ui.js';
 import { sinal } from './dados.js';
 
@@ -120,7 +120,7 @@ function desenhar() {
 }
 
 function pOrigens() {
-  const culturas = PACOTE?.culturas || [];
+  const culturas = pacoteAtual()?.culturas || [];
   return `
     <h2 style="margin-bottom:.35rem">Quem é você?</h2>
     <p class="campo__dica" style="margin-bottom:1.25rem">Ancestralidade e cultura dizem de onde seu personagem vem. (p.16)</p>
@@ -173,7 +173,7 @@ function pTrilha() {
     </p>
     <div class="escolhas">
       ${TRILHAS.map((t) => {
-        const doPacote = PACOTE?.trilhas?.find((x) => x.nome === t.nome);
+        const doPacote = pacoteAtual()?.trilhas?.find((x) => x.nome === t.nome);
         return `
           <button type="button" class="escolha" data-acao="trilha" data-valor="${esc(t.nome)}"
             aria-pressed="${rascunho.trilha?.nome === t.nome}">
@@ -314,7 +314,7 @@ function pTalentos() {
   const fixos = cantor ? [chave, 'Mudar Forma'] : [chave];
   const escolhido = rascunho.talentos.find((t) => !fixos.includes(t)) || '';
 
-  const fonte = cantor ? (PACOTE?.talentos?.cantor || []) : (PACOTE?.talentos?.heroicos || []);
+  const fonte = cantor ? (pacoteAtual()?.talentos?.cantor || []) : (pacoteAtual()?.talentos?.heroicos || []);
   const opcoes = fonte.filter((t) => !fixos.includes(t.nome) && atendePreRequisito(t));
 
   return `
@@ -336,7 +336,7 @@ function pTalentos() {
       ${cantor ? 'Suas formas iniciais' : 'Talento bônus de humano'}
     </h3>
 
-    ${PACOTE ? `
+    ${pacoteAtual() ? `
       ${opcoes.length ? `
         <p class="campo__dica" style="margin-bottom:.6rem">
           ${opcoes.length} disponíve${opcoes.length === 1 ? 'l' : 'is'} com as suas perícias atuais.
@@ -366,7 +366,7 @@ function pTalentos() {
 }
 
 function pEquipamento() {
-  const conjuntos = PACOTE?.conjuntos || [];
+  const conjuntos = pacoteAtual()?.conjuntos || [];
   return `
     <h2 style="margin-bottom:.35rem">Conjunto inicial</h2>
     <p class="campo__dica" style="margin-bottom:1.25rem">O equipamento com que você começa. (p.20)</p>
@@ -572,7 +572,7 @@ function finalizar() {
   f.objetivos = rascunho.objetivos;
   f.conexoes = rascunho.conexoes;
 
-  const conjunto = PACOTE?.conjuntos?.find((c) => c.nome === rascunho.conjunto);
+  const conjunto = pacoteAtual()?.conjuntos?.find((c) => c.nome === rascunho.conjunto);
   f.equipamento = conjunto ? `Conjunto de ${conjunto.nome}\n${conjunto.descricao || ''}` : rascunho.conjunto;
 
   adicionarFicha(f);

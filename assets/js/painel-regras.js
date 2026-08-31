@@ -2,7 +2,7 @@
    painel-regras.js — busca no pacote de livros do jogador
    ========================================================================= */
 
-import { PACOTE, buscar, livrosDoPacote, realcar, instalarPacote, removerPacote } from './pacote.js';
+import { pacoteAtual, buscar, livrosDoPacote, realcar, instalarPacote, removerPacote } from './pacote.js';
 import { esc, recado, ligarAcoes, icone, confirmar } from './ui.js';
 
 let raiz;
@@ -21,7 +21,7 @@ export function iniciarRegras(elemento) {
 }
 
 export function desenharRegras() {
-  raiz.innerHTML = PACOTE ? comPacote() : semPacote();
+  raiz.innerHTML = pacoteAtual() ? comPacote() : semPacote();
 }
 
 function semPacote() {
@@ -64,10 +64,11 @@ function semPacote() {
 }
 
 function comPacote() {
+  const pacote = pacoteAtual();
   const resultados = consulta.trim().length >= 2 ? buscar(consulta, { livro }) : null;
   return `
     <div class="painel__cabeca">
-      <div><h2>Regras</h2><p>${PACOTE.paginas.length} páginas dos seus livros, buscáveis.</p></div>
+      <div><h2>Regras</h2><p>${pacote.paginas.length} páginas dos seus livros, buscáveis.</p></div>
       <div class="painel__acoes">
         <button class="btn btn--pequeno btn--perigo" data-acao="remover-pacote">Remover pacote</button>
       </div>

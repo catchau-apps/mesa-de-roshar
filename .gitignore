@@ -10,3 +10,6 @@ Thumbs.db
 .idea/
 __pycache__/
 *.pyc
+
+# build de arquivo único (gerado por ferramentas/gerar_previa.py)
+previa.html

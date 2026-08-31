@@ -6,7 +6,8 @@
    Tudo sai do pacote de dados do próprio jogador.
    ========================================================================= */
 
-import { pacoteAtual, normalizar } from './pacote.js';
+import { pacoteAtual, normalizar, buscar } from './pacote.js';
+import { condicaoPorNome, ACOES_RADIANTE } from './sistema.js';
 import { conferirPreRequisitos } from './prerequisitos.js';
 import { esc, recado } from './ui.js';
 
@@ -87,6 +88,53 @@ function todosOsTalentos() {
 }
 
 export const temCatalogo = () => todosOsTalentos().length > 0;
+
+/** Uma janela simples de texto, usada por condições e ações. */
+function janela(titulo, corpo) {
+  const dlg = document.createElement('dialog');
+  dlg.innerHTML = `
+    <div class="dialogo__cabeca">
+      <h2>${esc(titulo)}</h2>
+      <button class="btn btn--fantasma" type="button" data-fechar
+        aria-label="Fechar" style="margin-left:auto;width:38px;padding:0">✕</button>
+    </div>
+    <div class="dialogo__corpo" style="max-height:70vh;overflow:auto">${corpo}</div>`;
+  document.body.append(dlg);
+  const fechar = () => { dlg.close(); dlg.remove(); };
+  dlg.addEventListener('click', (ev) => { if (ev.target.closest('[data-fechar]')) fechar(); });
+  dlg.addEventListener('cancel', (ev) => { ev.preventDefault(); fechar(); });
+  dlg.showModal();
+}
+
+/** O que uma condição faz: o resumo da mecânica e, se houver pacote, o livro. */
+export function abrirDescricaoDaCondicao(nome) {
+  const definicao = condicaoPorNome(nome);
+  const doLivro = pacoteAtual() ? buscar(nome, { livro: 'Regras', limite: 1 })[0] : null;
+  janela(nome, `
+    <p class="talento__texto"><strong>${esc(definicao?.texto || '')}</strong></p>
+    ${doLivro
+      ? `<p class="campo__dica" style="margin:.75rem 0 .25rem">Guia de Regras, página ${doLivro.pagina}</p>
+         <p class="talento__texto">${esc(doLivro.trecho.slice(0, 900))}</p>`
+      : `<p class="campo__dica" style="margin-top:.75rem">Instale o pacote de dados na aba Regras
+           para ler o texto do livro aqui.</p>`}`);
+}
+
+/** O texto de uma ação de Radiante. */
+export function abrirDescricaoDaAcao(nome) {
+  const acao = ACOES_RADIANTE.find((a) => a.nome === nome);
+  if (!acao) return;
+  janela(acao.nome, `
+    <p class="talento__origem" style="margin-top:0">
+      <strong>${esc(acao.custo)}</strong> · Guia de Regras, página ${acao.pagina}
+    </p>
+    <p class="talento__texto">${esc(acao.texto)}</p>`);
+}
+
+/** O que o livro diz de um talento, para a ficha mostrar em uma linha. */
+export function fichaDoTalento(nome) {
+  const alvo = normalizar(nome);
+  return todosOsTalentos().find((t) => normalizar(t.nome) === alvo) || null;
+}
 
 /**
  * Abre o catálogo. `aoEscolher(nome)` recebe o talento escolhido.

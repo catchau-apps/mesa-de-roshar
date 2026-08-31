@@ -59,6 +59,10 @@ LIXO = re.compile(
     r"licenciado para .*|^\s*\d+\s*$|guerra das tempestades\s*$",
     re.IGNORECASE,
 )
+# A linha de rodape ("Capitulo 5: Trilhas Radiantes194") aparece no meio do
+# capitulo quando juntamos as paginas, e cortava a descricao de qualquer
+# talento que atravessasse a virada de pagina.
+RODAPE_CAPITULO = re.compile(r"^Cap[\u00ed\u0069]tulo\s+\d+:.*$")
 RODAPE = re.compile(r"(?:Cap[íi]tulo\s+\d+:[^\n\d]{3,60}?|^\s*)(\d{1,3})\s*$", re.M)
 KERNING = re.compile(r"\b([BCDFGHJKLMNPQRSTVWXYZ])\s+([a-zà-ú])")
 PARENTESE_FIM = re.compile(r"\s*\([^)]{0,12}\)\s*$")
@@ -69,7 +73,7 @@ def limpar(texto: str) -> str:
     linhas = []
     for linha in texto.splitlines():
         linha = linha.replace("\u00ad", "").strip()
-        if not linha or LIXO.match(linha):
+        if not linha or LIXO.match(linha) or RODAPE_CAPITULO.match(linha):
             continue
         linhas.append(linha)
     txt = "\n".join(linhas)
@@ -177,6 +181,40 @@ FLUXOS = [
 ]
 
 
+CUSTOS = re.compile(
+    r"[Gg]ast(?:a|ar|e)\s+(?:at[ée]\s+)?(\d+|um|uma|dois|duas)\s+"
+    r"(?:pontos?\s+de\s+)?(foco|Investidura)", re.I
+)
+PALAVRA_NUMERO = {"um": "1", "uma": "1", "dois": "2", "duas": "2"}
+
+
+def achar_custo(descricao: str) -> str:
+    """O custo do talento aparece na descricao: "Gasta 1 de foco"."""
+    achados = []
+    for m in CUSTOS.finditer(descricao):
+        quanto = PALAVRA_NUMERO.get(m.group(1).lower(), m.group(1))
+        recurso = "foco" if m.group(2).lower() == "foco" else "Investidura"
+        par = f"{quanto} de {recurso}"
+        if par not in achados:
+            achados.append(par)
+    return " ou ".join(achados[:2])
+
+
+def primeira_frase(descricao: str) -> str:
+    """Uma linha dizendo o que o talento faz.
+
+    O livro abre com um paragrafo de ambientacao e so depois da a regra, num
+    paragrafo proprio. Entao a mecanica e' a primeira frase do segundo
+    paragrafo; se o talento tem um paragrafo so, ele ja e' a regra.
+    """
+    paragrafos = [p.strip() for p in descricao.split(chr(10)) if p.strip()]
+    if not paragrafos:
+        return ""
+    alvo = paragrafos[1] if len(paragrafos) > 1 else paragrafos[0]
+    frases = [f.strip() for f in re.split(r"(?<=[.!?])\s+", alvo) if f.strip()]
+    return (frases[0] if frases else alvo)[:220]
+
+
 def limpar_corrido(t: str) -> str:
     """Remonta os paragrafos que o PDF quebrou por causa da coluna.
 
@@ -255,14 +293,14 @@ def pegar_nome(antes: str) -> str:
         so_glifo = bool(re.fullmatch(r"[▶▷↻★∞*0-38Rr]", ant))
         cabe = (len(ant) <= 30 and len(nome) <= 30
                 and len(ant) + len(nome) <= 46
-                and not re.search(r"[.:;!?]$", ant))
+                and not re.search(r"[.:;!?][\u201d\u2019)\]]*$", ant))
         if (cabe or parenteses_aberto or so_glifo) and not ANCORA.search(ant):
             nome = ant + " " + nome
     return nome
 
 
 def fatiar_talentos(txt: str):
-    """(nome_cru, bloco) de cada talento da pagina."""
+    """(nome_cru, bloco, posicao) de cada talento do texto."""
     ancoras = list(ANCORA.finditer(txt))
     for i, m in enumerate(ancoras):
         fim = ancoras[i + 1].start() if i + 1 < len(ancoras) else len(txt)
@@ -271,9 +309,9 @@ def fatiar_talentos(txt: str):
         if i + 1 < len(ancoras):
             prox = pegar_nome(txt[: ancoras[i + 1].start()])
             if prox:
-                sobra = len(prox.split("\n")[-1])
+                sobra = len(prox.split(chr(10))[-1])
                 bloco = bloco[: max(0, len(bloco) - sobra - 1)]
-        yield nome, bloco
+        yield nome, bloco, m.start()
 
 
 def montar_regex_prerequisito(nomes_de_talentos: list[str]) -> re.Pattern:
@@ -338,28 +376,57 @@ def grupo_da_pagina(marcos, pagina, fim):
 
 
 def coletar_talentos(paginas, faixa, marcos):
-    """Passo 1: acha os talentos e guarda o bloco cru de cada um."""
-    dentro = [p for p in paginas if faixa[0] <= p["pagina"] <= faixa[1]]
+    """Passo 1: acha os talentos do capitulo e guarda o bloco cru de cada um.
+
+    O capitulo e' processado inteiro, e nao pagina a pagina: a descricao de um
+    talento frequentemente atravessa a virada de pagina, e cortando por pagina
+    ela ficava pela metade. A pagina de cada talento sai da posicao em que ele
+    aparece no texto emendado.
+    """
+    dentro = sorted(
+        (p for p in paginas if faixa[0] <= p["pagina"] <= faixa[1]),
+        key=lambda x: x["pagina"],
+    )
+    if not dentro:
+        return []
+
+    partes, limites, posicao = [], [], 0
+    for pagina in dentro:
+        partes.append(pagina["texto"])
+        limites.append((posicao, posicao + len(pagina["texto"]), pagina["pagina"]))
+        posicao += len(pagina["texto"]) + 1
+    texto = chr(10).join(partes)
+
+    def pagina_de(offset):
+        for comeco, final, numero in limites:
+            if comeco <= offset <= final:
+                return numero
+        return limites[-1][2]
+
+    # especializacao e trilha valem a partir de onde aparecem no texto
+    marcas = [(m.start(), m.group(1)) for m in ESPECIALIZACAO.finditer(texto)]
+    marcas += [(m.start(), "") for m in ABRE_TRILHA.finditer(texto)]
+    marcas.sort()
+
+    def especializacao_de(offset):
+        atual = ""
+        for onde, nome in marcas:
+            if onde > offset:
+                break
+            atual = nome
+        return atual
+
     crus = []
-    especializacao = None
-
-    for p in sorted(dentro, key=lambda x: x["pagina"]):
-        txt = p["texto"]
-        grupo = grupo_da_pagina(marcos, p["pagina"], faixa[1])
-        m = ESPECIALIZACAO.search(txt)
-        if m:
-            especializacao = m.group(1).strip()
-        if ABRE_TRILHA.search(txt):
-            especializacao = None
-
-        for nome_cru, bloco in fatiar_talentos(txt):
-            nome, glifo = limpar_nome(nome_cru)
-            if not nome or len(nome) < 3 or LIXO_NOME.search(nome):
-                continue
-            crus.append({
-                "nome": nome, "glifo": glifo, "bloco": bloco, "grupo": grupo,
-                "especializacao": especializacao or "", "pagina": p["pagina"],
-            })
+    for nome_cru, bloco, onde in fatiar_talentos(texto):
+        nome, glifo = limpar_nome(nome_cru)
+        if not nome or len(nome) < 3 or LIXO_NOME.search(nome):
+            continue
+        pagina = pagina_de(onde)
+        crus.append({
+            "nome": nome, "glifo": glifo, "bloco": bloco,
+            "grupo": grupo_da_pagina(marcos, pagina, faixa[1]),
+            "especializacao": especializacao_de(onde), "pagina": pagina,
+        })
     return crus
 
 
@@ -413,6 +480,8 @@ def concluir_talentos(crus, regex_pre):
             "especializacao": c["especializacao"],
             "preRequisitos": pre.strip(" .;:") or "nenhum",
             "ativacao": ativacao,
+            "custo": achar_custo(descricao),
+            "resumo": primeira_frase(descricao),
             "descricao": descricao[:1400],
             "pagina": c["pagina"],
         })
@@ -426,7 +495,34 @@ def concluir_talentos(crus, regex_pre):
         nota = (bool(t["ativacao"]), len(t["descricao"]))
         if not anterior or nota > (bool(anterior["ativacao"]), len(anterior["descricao"])):
             vistos[chave] = t
-    return sorted(vistos.values(), key=lambda t: (t["grupo"], t["especializacao"], t["nome"]))
+
+    return juntar_nomes_truncados(sorted(
+        vistos.values(), key=lambda t: (t["grupo"], t["especializacao"], t["nome"])))
+
+
+def juntar_nomes_truncados(talentos):
+    """O PDF as vezes perde uma palavra do titulo ("Segundo" em vez de
+    "Segundo Ideal"), e o mesmo talento aparecia duas vezes: um com o texto
+    curto da arvore e outro com o detalhado. Quando um nome e' o comeco do
+    outro, no mesmo grupo e com o mesmo pre-requisito, e' o mesmo talento —
+    fica o nome completo com a melhor descricao."""
+    saida = list(talentos)
+    for curto in list(saida):
+        for longo in saida:
+            if curto is longo or curto["grupo"] != longo["grupo"]:
+                continue
+            partes_c, partes_l = curto["nome"].split(), longo["nome"].split()
+            if len(partes_c) >= len(partes_l) or partes_l[:len(partes_c)] != partes_c:
+                continue
+            if curto["preRequisitos"] != longo["preRequisitos"]:
+                continue
+            if len(curto["descricao"]) > len(longo["descricao"]):
+                longo.update({k: curto[k] for k in
+                              ("descricao", "resumo", "custo", "ativacao", "pagina")})
+            if curto in saida:
+                saida.remove(curto)
+            break
+    return saida
 
 
 def extrair_blocos(paginas, faixa, nomes, prefixo):

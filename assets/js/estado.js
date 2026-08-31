@@ -17,6 +17,7 @@ export function fichaNova(nome = 'Novo personagem') {
     nome, jogador: '',
     ancestralidade: '', cultura: '', trilhas: '',
     nivel: 1, radiante: false, ordem: '',   // ordem Radiante define os dois fluxos
+    ideaisJurados: 0,                       // até qual Ideal o personagem chegou
     atributos: { for: 0, vel: 0, int: 0, von: 0, con: 0, pre: 0 },
     pericias: {}, fluxos: {},
     periciasProprias: [],            // a linha em branco de cada coluna da ficha
@@ -63,6 +64,10 @@ function carregar() {
       FLUXOS.forEach((p) => { f.fluxos[p.nome] ??= 0; });
       f.periciasProprias ??= [];
       f.jogador ??= ''; f.marcos ??= ''; f.aparencia ??= ''; f.ordem ??= '';
+      f.ideaisJurados ??= 0;
+      // as condições viraram objetos, para carregarem o valor de Exausto [−2]
+      f.condicoes = (f.condicoes || []).map((c) =>
+        typeof c === 'string' ? { nome: c } : c);
       // objetivos viraram lista com progresso; texto antigo entra como linhas
       if (typeof f.objetivos === 'string') {
         f.objetivos = f.objetivos.split(/\r?\n/).map((t) => t.trim()).filter(Boolean)

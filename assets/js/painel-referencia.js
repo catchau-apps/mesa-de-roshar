@@ -97,7 +97,7 @@ export function desenharReferencia() {
 
         <section class="cartao">
           <div class="cartao__cabeca"><h3>Condições</h3><span class="cartao__fonte">p. 293–295</span></div>
-          <div class="cartao__corpo">${CONDICOES.map(([n, d]) => item(n, '', d)).join('')}</div>
+          <div class="cartao__corpo">${CONDICOES.map((c) => item(c.nome, '', c.texto)).join('')}</div>
         </section>
       </div>
     </div>`;

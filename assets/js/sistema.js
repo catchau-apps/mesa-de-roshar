@@ -86,12 +86,17 @@ export const defesaFisica     = (f) => 10 + (f.atributos.for || 0) + (f.atributo
 export const defesaCognitiva  = (f) => 10 + (f.atributos.int || 0) + (f.atributos.von || 0);
 export const defesaEspiritual = (f) => 10 + (f.atributos.con || 0) + (f.atributos.pre || 0);
 
+/**
+ * Modificador de perícia: atributo + graduações, já com o que as condições
+ * fizerem — Aprimorado soma no atributo, Exausto tira de todo teste.
+ */
 export function modificador(ficha, pericia) {
-  const base = ficha.atributos[pericia.atributo] || 0;
+  const efeitos = efeitosAtivos(ficha);
+  const base = (ficha.atributos[pericia.atributo] || 0) + efeitos.bonusAtributo[pericia.atributo];
   const grad = pericia.reino === 'fluxo'
     ? (ficha.fluxos[pericia.nome] || 0)
     : (ficha.pericias[pericia.nome] || 0);
-  return base + grad;
+  return base + grad - efeitos.penalidadeTestes;
 }
 
 /* --- ordens Radiantes (cap.5) -------------------------------------------
@@ -127,22 +132,118 @@ export const CRIACAO = {
   especialidadesCulturais: 2,
 };
 
-/* --- condições (p.293–295) — nomes e efeito resumido em palavras próprias --- */
+/* --- condições (p.293–295) -----------------------------------------------
+   Além do texto, cada condição declara o que faz na ficha. É isso que deixa a
+   ficha reagir: marcar Lento muda o movimento, marcar Exausto [2] tira 2 de
+   todos os testes, e assim por diante.
+   `valor` diz que a condição carrega um número (Exausto [−2], Aprimorado [+1]). */
 export const CONDICOES = [
-  ['Afligido', 'Sofre o dano indicado no fim de cada turno seu.'],
-  ['Aprimorado', 'Ganha o bônus de atributo indicado; não muda defesas nem os máximos.'],
-  ['Atordoado', 'Ganha duas ações a menos e nenhuma reação no seu turno.'],
-  ['Desorientado', 'Sem reações; testes de sentidos com desvantagem.'],
-  ['Determinado', 'Ao falhar um teste, pode somar uma Oportunidade e perder a condição.'],
-  ['Exausto', 'Penalidade cumulativa nos testes; cai 1 a cada descanso longo.'],
-  ['Focado', 'Habilidades custam 1 de foco a menos.'],
-  ['Imobilizado', 'Movimento zero; não se move nem é movido.'],
-  ['Inconsciente', 'Movimento zero e Prostrado; não age nem reage.'],
-  ['Lento', 'Movimento pela metade.'],
-  ['Potencializado', 'Vantagem em tudo e Investidura cheia no início de cada turno seu.'],
-  ['Prostrado', 'Caído e Lento; corpo a corpo contra você ganha vantagem.'],
-  ['Restringido', 'Movimento zero e desvantagem, exceto para escapar.'],
-  ['Surpreendido', 'Sem reação inicial, sem turno rápido e uma ação a menos.'],
+  { nome: 'Afligido', texto: 'Sofre o dano indicado no fim de cada turno seu.', valor: 'dano' },
+  { nome: 'Aprimorado', texto: 'Ganha o bônus de atributo indicado; não muda defesas nem os máximos.',
+    valor: 'atributo', efeito: { bonusAtributo: true } },
+  { nome: 'Atordoado', texto: 'Ganha duas ações a menos e nenhuma reação no seu turno.',
+    efeito: { acoesAMenos: 2, semReacoes: true } },
+  { nome: 'Desorientado', texto: 'Sem reações; testes de sentidos com desvantagem.',
+    efeito: { semReacoes: true, desvantagemSentidos: true } },
+  { nome: 'Determinado', texto: 'Ao falhar um teste, pode somar uma Oportunidade e perder a condição.' },
+  { nome: 'Exausto', texto: 'Penalidade cumulativa nos testes; cai 1 a cada descanso longo.',
+    valor: 'penalidade', efeito: { penalidadeTestes: true } },
+  { nome: 'Focado', texto: 'Habilidades custam 1 de foco a menos.', efeito: { custoFocoMenor: true } },
+  { nome: 'Imobilizado', texto: 'Movimento zero; não se move nem é movido.', efeito: { movimento: 'zero' } },
+  { nome: 'Inconsciente', texto: 'Movimento zero e Prostrado; não age nem reage.',
+    efeito: { movimento: 'zero', semReacoes: true, semAcoes: true } },
+  { nome: 'Lento', texto: 'Movimento pela metade.', efeito: { movimento: 'metade' } },
+  { nome: 'Potencializado', texto: 'Vantagem em tudo e Investidura cheia no início de cada turno seu.',
+    efeito: { vantagemGeral: true, investiduraCheia: true } },
+  { nome: 'Prostrado', texto: 'Caído e Lento; corpo a corpo contra você ganha vantagem.',
+    efeito: { movimento: 'metade' } },
+  { nome: 'Restringido', texto: 'Movimento zero e desvantagem, exceto para escapar.',
+    efeito: { movimento: 'zero', desvantagemGeral: true } },
+  { nome: 'Surpreendido', texto: 'Sem reação inicial, sem turno rápido e uma ação a menos.',
+    efeito: { acoesAMenos: 1, semReacoes: true } },
+];
+
+export const condicaoPorNome = (nome) => CONDICOES.find((c) => c.nome === nome);
+
+/**
+ * Soma o que as condições ativas fazem. É a fonte única de verdade para a
+ * ficha inteira: modificadores de perícia, movimento e avisos saem daqui.
+ */
+export function efeitosAtivos(ficha) {
+  const total = {
+    penalidadeTestes: 0,
+    bonusAtributo: { for: 0, vel: 0, int: 0, von: 0, con: 0, pre: 0 },
+    movimento: null, vantagemGeral: false, desvantagemGeral: false,
+    desvantagemSentidos: false, semReacoes: false, semAcoes: false,
+    acoesAMenos: 0, custoFocoMenor: false, investiduraCheia: false,
+    ativas: [],
+  };
+  for (const marcada of (ficha.condicoes || [])) {
+    const nome = typeof marcada === 'string' ? marcada : marcada.nome;
+    const definicao = condicaoPorNome(nome);
+    if (!definicao) continue;
+    total.ativas.push(marcada);
+    const e = definicao.efeito || {};
+    if (e.penalidadeTestes) total.penalidadeTestes += Number(marcada.valor) || 1;
+    if (e.bonusAtributo && marcada.atributo) {
+      total.bonusAtributo[marcada.atributo] += Number(marcada.valor) || 1;
+    }
+    // movimento zero manda sobre movimento pela metade
+    if (e.movimento === 'zero') total.movimento = 'zero';
+    else if (e.movimento === 'metade' && total.movimento !== 'zero') total.movimento = 'metade';
+    if (e.vantagemGeral) total.vantagemGeral = true;
+    if (e.desvantagemGeral) total.desvantagemGeral = true;
+    if (e.desvantagemSentidos) total.desvantagemSentidos = true;
+    if (e.semReacoes) total.semReacoes = true;
+    if (e.semAcoes) total.semAcoes = true;
+    if (e.acoesAMenos) total.acoesAMenos = Math.max(total.acoesAMenos, e.acoesAMenos);
+    if (e.custoFocoMenor) total.custoFocoMenor = true;
+    if (e.investiduraCheia) total.investiduraCheia = true;
+  }
+  return total;
+}
+
+/** O valor do atributo já com o bônus de Aprimorado. */
+export function atributoEfetivo(ficha, id) {
+  return (ficha.atributos[id] || 0) + efeitosAtivos(ficha).bonusAtributo[id];
+}
+
+/** A taxa de movimento depois das condições. */
+export function movimentoEfetivo(ficha) {
+  const efeitos = efeitosAtivos(ficha);
+  if (efeitos.movimento === 'zero') return { texto: '0 m', motivo: 'parado por condição' };
+  const base = movimento(atributoEfetivo(ficha, 'vel'));
+  if (efeitos.movimento !== 'metade') {
+    return { texto: base, motivo: efeitos.bonusAtributo.vel ? 'Aprimorado' : null };
+  }
+  const numero = parseFloat(base.replace(',', '.'));
+  const metade = String((numero / 2).toFixed(1)).replace(/\.0$/, '').replace('.', ',');
+  return { texto: `${metade} m`, motivo: 'pela metade' };
+}
+
+/* --- ações de Radiante (p.124–125) --------------------------------------
+   As três ações que a Investidura paga. Elas mexem na ficha de verdade, por
+   isso guardam o que fazem, e não só o texto.                             */
+export const ACOES_RADIANTE = [
+  {
+    nome: 'Inspirar Luz das Tempestades', custo: '2 ações', pagina: 124,
+    texto: 'Extrai Luz das Tempestades de esferas infundidas a até 1,5 metro de você. '
+         + 'Com esferas suficientes, recupera a Investidura até o valor máximo.',
+    aplica: 'encherInvestidura',
+  },
+  {
+    nome: 'Aprimorar', custo: '1 ação · 1 de Investidura', pagina: 125,
+    texto: 'Fica Aprimorado [+1 de Força] e Aprimorado [+1 de Velocidade] até o fim do seu '
+         + 'próximo turno. Ao fim de cada turno, pode gastar mais 1 de Investidura como ação '
+         + 'livre para manter as condições.',
+    aplica: 'aprimorar',
+  },
+  {
+    nome: 'Regenerar', custo: 'ação livre · 1 de Investidura', pagina: 125,
+    texto: 'Recupera vida igual a 1d6 + seu patamar. Pode ser usada mesmo Inconsciente ou '
+         + 'impedido de agir de outra forma.',
+    aplica: 'regenerar',
+  },
 ];
 
 /* --- ações e reações (p.303–305) --- */
@@ -213,6 +314,16 @@ export const TRILHAS = [
 ];
 
 export const ANCESTRALIDADES = ['Humano', 'Cantor'];
+
+/* Os Ideais são jurados em ordem, então basta a ficha guardar até qual o
+   personagem chegou: o resto se deduz. */
+export const IDEAIS = ['Primeiro', 'Segundo', 'Terceiro', 'Quarto', 'Quinto'];
+
+/** "Falar o Segundo Ideal" → 2. Devolve 0 quando não reconhece. */
+export function nivelDoIdeal(texto) {
+  const m = /(primeiro|segundo|terceiro|quarto|quinto)\s+ideal/i.exec(texto || '');
+  return m ? IDEAIS.findIndex((x) => x.toLowerCase() === m[1].toLowerCase()) + 1 : 0;
+}
 
 /* =========================================================================
    Evolução de personagem (tabela do cap.1, p.25)

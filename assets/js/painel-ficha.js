@@ -11,14 +11,17 @@ import {
   ATRIBUTOS, PERICIAS, FLUXOS, CONDICOES,
   vidaMaxima, focoMaximo, defesaFisica, defesaCognitiva, defesaEspiritual,
   modificador, movimento, dadoRecuperacao, sentidos, levantamento, patamar,
-  ORDENS_RADIANTES, fluxosDaOrdem,
+  ORDENS_RADIANTES, fluxosDaOrdem, IDEAIS,
+  efeitosAtivos, atributoEfetivo, movimentoEfetivo,
+  ACOES_RADIANTE, condicaoPorNome,
 } from './sistema.js';
 import { fichaAtual, salvar, descansoLongo } from './estado.js';
 import { rolarExpressao, sinal } from './dados.js';
 import { esc, recado, tremer, ligarAcoes, ligarEntradas, redesenharPreservandoFoco } from './ui.js';
 import { cartaoProgressao, subirDeNivel } from './assistente.js';
 import { abrirCatalogoDeTalentos, abrirDescricaoDaPericia,
-         abrirDescricaoDoTalento } from './catalogo.js';
+         abrirDescricaoDoTalento, fichaDoTalento,
+         abrirDescricaoDaCondicao, abrirDescricaoDaAcao } from './catalogo.js';
 
 let raiz;
 let aoRolarPericia = () => {};
@@ -89,6 +92,7 @@ export function desenharFicha() {
       ${pericias(f)}
       ${derivados(f)}
       ${condicoesEEspecialidades(f)}
+      ${acoesDeRadiante(f)}
       ${armasETalentos(f)}
 
       <p class="folha__verso">verso</p>
@@ -121,13 +125,15 @@ function cabecalho(f) {
 }
 
 function faixaAtributos(f) {
+  const efeitos = efeitosAtivos(f);
   const atributo = (chave) => {
     const a = ATRIBUTOS.find((x) => x.id === chave);
     const v = f.atributos[chave] || 0;
+    const bonus = efeitos.bonusAtributo[chave];
     return moldura(`
-      <div class="atr-caixa">
+      <div class="atr-caixa ${bonus ? 'atr-caixa--aprimorado' : ''}">
         <span class="rotulo">${a.nome}</span>
-        <strong class="atr-caixa__valor num">${v}</strong>
+        <strong class="atr-caixa__valor num">${v + bonus}${bonus ? `<small>+${bonus}</small>` : ''}</strong>
         <div class="atr-caixa__passos">
           <button type="button" data-acao="atributo" data-atributo="${chave}" data-delta="-1"
             aria-label="Diminuir ${a.nome}" ${v <= 0 ? 'disabled' : ''}>−</button>
@@ -297,22 +303,65 @@ function derivados(f) {
   return `
     <div class="derivados-folha">
       ${caixa('Levantamento', levantamento(f.atributos.for || 0))}
-      ${caixa('Movimento', movimento(f.atributos.vel || 0))}
+      ${(() => { const m = movimentoEfetivo(f);
+          return caixa('Movimento', m.texto + (m.motivo ? `<small class="derivado-folha__nota">${m.motivo}</small>` : '')); })()}
       ${caixa('Dado de recuperação', dadoRecuperacao(f.atributos.von || 0))}
       ${caixa('Distância dos sentidos', sentidos(f.atributos.con || 0))}
     </div>`;
 }
 
 function condicoesEEspecialidades(f) {
+  const efeitos = efeitosAtivos(f);
+  const marcada = (nome) => (f.condicoes || []).find((c) => c.nome === nome);
+
+  const chip = (definicao) => {
+    const ativa = marcada(definicao.nome);
+    const valor = ativa && definicao.valor
+      ? (definicao.valor === 'atributo'
+          ? ` +${ativa.valor || 1} ${(ATRIBUTOS.find((a) => a.id === ativa.atributo) || {}).sigla || '?'}`
+          : ` ${definicao.valor === 'penalidade' ? '−' : ''}${ativa.valor || 1}`)
+      : '';
+    return `
+      <span class="condicao ${ativa ? 'condicao--ativa' : ''}">
+        <button type="button" class="condicao__marcar" data-acao="condicao" data-condicao="${esc(definicao.nome)}"
+          aria-pressed="${!!ativa}" title="${ativa ? 'Tirar' : 'Marcar'} ${esc(definicao.nome)}"
+          >${esc(definicao.nome)}${esc(valor)}</button>
+        ${ativa && definicao.valor && definicao.valor !== 'dano' ? `
+          <span class="condicao__passos">
+            <button type="button" data-acao="valor-condicao" data-condicao="${esc(definicao.nome)}"
+              data-delta="-1" aria-label="Diminuir ${esc(definicao.nome)}">−</button>
+            <button type="button" data-acao="valor-condicao" data-condicao="${esc(definicao.nome)}"
+              data-delta="1" aria-label="Aumentar ${esc(definicao.nome)}">+</button>
+          </span>` : ''}
+        <button type="button" class="condicao__ver" data-acao="ver-condicao" data-condicao="${esc(definicao.nome)}"
+          aria-label="O que ${esc(definicao.nome)} faz">?</button>
+      </span>`;
+  };
+
+  const avisos = [];
+  if (efeitos.penalidadeTestes) avisos.push(`−${efeitos.penalidadeTestes} em todos os testes`);
+  if (efeitos.movimento === 'zero') avisos.push('movimento zerado');
+  else if (efeitos.movimento === 'metade') avisos.push('movimento pela metade');
+  const bonus = ATRIBUTOS.filter((a) => efeitos.bonusAtributo[a.id])
+    .map((a) => `+${efeitos.bonusAtributo[a.id]} ${a.sigla}`);
+  if (bonus.length) avisos.push(bonus.join(', '));
+  if (efeitos.vantagemGeral) avisos.push('vantagem em todos os testes');
+  if (efeitos.desvantagemGeral) avisos.push('desvantagem, exceto para escapar');
+  if (efeitos.semReacoes) avisos.push('sem reações');
+  if (efeitos.acoesAMenos) avisos.push(`${efeitos.acoesAMenos} ação(ões) a menos`);
+  if (efeitos.custoFocoMenor) avisos.push('habilidades custam 1 de foco a menos');
+
   return `
     <div class="caixas-folha caixas-folha--12">
       ${moldura(`
         <span class="rotulo">Condições e lesões</span>
         <div class="condicoes-folha">
-          ${CONDICOES.map(([nome, efeito]) => `
-            <button type="button" data-acao="condicao" data-condicao="${esc(nome)}"
-              aria-pressed="${f.condicoes.includes(nome)}" title="${esc(efeito)}">${esc(nome)}</button>`).join('')}
+          ${CONDICOES.map(chip).join('')}
         </div>
+        ${avisos.length ? `
+          <p class="efeitos-ativos">
+            <strong>Em vigor agora:</strong> ${esc(avisos.join(' · '))}
+          </p>` : ''}
         <textarea data-campo="lesoes" rows="2" placeholder="Lesões e durações"
           aria-label="Lesões">${esc(f.lesoes || '')}</textarea>`)}
 
@@ -320,6 +369,35 @@ function condicoesEEspecialidades(f) {
         <span class="rotulo">Especialidades</span>
         ${listaEtiquetas('especialidades', f.especialidades, 'Ex.: Espada longa, Alethiana')}`)}
     </div>`;
+}
+
+/* As três ações que a Investidura paga. Cada uma mexe na ficha de verdade:
+   encher a Investidura, aplicar as condições de Aprimorado, rolar a cura. */
+function acoesDeRadiante(f) {
+  if (!f.radiante) return '';
+  const investidura = f.investidura || 0;
+  return `
+    ${moldura(`
+      <span class="rotulo">Ações de Radiante</span>
+      <div class="acoes-radiante">
+        ${ACOES_RADIANTE.map((a) => {
+          const semInvestidura = a.aplica !== 'encherInvestidura' && investidura < 1;
+          return `
+            <div class="acao-radiante">
+              <button type="button" class="acao-radiante__ver" data-acao="ver-acao" data-nome="${esc(a.nome)}"
+                title="O que essa ação faz">
+                <span class="acao-radiante__nome">${esc(a.nome)}</span>
+                <span class="selo selo--custo">${esc(a.custo)}</span>
+              </button>
+              <button type="button" class="btn btn--pequeno ${semInvestidura ? '' : 'btn--principal'}"
+                data-acao="usar-acao" data-nome="${esc(a.nome)}" ${semInvestidura ? 'disabled' : ''}
+                title="${semInvestidura ? 'Sem Investidura' : 'Usar agora'}">Usar</button>
+            </div>`;
+        }).join('')}
+      </div>
+      <p class="campo__dica" style="padding:0 .55rem .5rem">
+        Usar uma ação gasta a Investidura e ajusta a ficha sozinha.
+      </p>`)}`;
 }
 
 function listaEtiquetas(lista, itens, marcador, acaoAoTocar = '') {
@@ -339,6 +417,35 @@ function listaEtiquetas(lista, itens, marcador, acaoAoTocar = '') {
       <input data-novo="${lista}" placeholder="${esc(marcador)}" aria-label="${esc(marcador)}">
       <button type="button" data-acao="por-item" data-lista="${lista}">Add</button>
     </div>`;
+}
+
+/* Cada talento da ficha mostra o essencial da mesa: como ativa, quanto custa
+   e o que faz. O texto completo fica a um toque. */
+function listaTalentos(f) {
+  if (!f.talentos.length) {
+    return '<p class="campo__dica" style="padding:.3rem .55rem">Nenhum talento ainda.</p>';
+  }
+  return `<div class="talentos-ficha">
+    ${f.talentos.map((nome, i) => {
+      const doLivro = fichaDoTalento(nome);
+      return `
+        <article class="talento-ficha">
+          <button type="button" class="talento-ficha__abrir" data-acao="ver-talento" data-item="${esc(nome)}"
+            title="Ver o texto completo">
+            <span class="talento-ficha__nome">${esc(nome)}</span>
+            <span class="talento-ficha__marcas">
+              ${doLivro?.ativacao ? `<span class="selo selo--ativacao">${esc(doLivro.ativacao)}</span>` : ''}
+              ${doLivro?.custo ? `<span class="selo selo--custo">${esc(doLivro.custo)}</span>` : ''}
+            </span>
+            ${doLivro?.resumo
+              ? `<span class="talento-ficha__efeito">${esc(doLivro.resumo)}</span>`
+              : '<span class="talento-ficha__efeito talento-ficha__efeito--vazio">sem texto no pacote</span>'}
+          </button>
+          <button type="button" class="talento-ficha__tirar" data-acao="tirar-item"
+            data-lista="talentos" data-indice="${i}" aria-label="Remover ${esc(nome)}">×</button>
+        </article>`;
+    }).join('')}
+  </div>`;
 }
 
 function armasETalentos(f) {
@@ -368,7 +475,11 @@ function armasETalentos(f) {
 
       ${moldura(`
         <span class="rotulo">Talentos</span>
-        ${listaEtiquetas('talentos', f.talentos, 'Nome do talento', 'ver-talento')}
+        ${listaTalentos(f)}
+        <div class="entrada-folha">
+          <input data-novo="talentos" placeholder="Nome do talento" aria-label="Nome do talento">
+          <button type="button" data-acao="por-item" data-lista="talentos">Add</button>
+        </div>
         <div class="entrada-folha" style="padding-top:0">
           <button type="button" data-acao="ver-talentos" style="width:100%">
             Buscar no livro…
@@ -451,8 +562,22 @@ function verso(f) {
             <button type="button" data-acao="novo-objetivo">+ Objetivo</button>
           </div>`)}
         ${f.radiante ? moldura(`
-          <span class="rotulo">Ideais falados</span>
-          <textarea data-campo="ideais" rows="4" aria-label="Ideais falados">${esc(f.ideais)}</textarea>`) : ''}
+          <span class="rotulo">Ideais jurados</span>
+          <div class="ideais">
+            ${IDEAIS.map((nome, i) => `
+              <button type="button" class="ideal" data-acao="ideal" data-nivel="${i + 1}"
+                aria-pressed="${(f.ideaisJurados || 0) >= i + 1}"
+                title="${(f.ideaisJurados || 0) >= i + 1 ? 'Jurado' : 'Ainda não jurado'}">
+                ${esc(nome)}
+              </button>`).join('')}
+          </div>
+          <p class="campo__dica" style="padding:0 .55rem .5rem">
+            Marcar até qual Ideal você jurou faz o app conferir sozinho os
+            talentos que dependem disso.
+          </p>
+          <textarea data-campo="ideais" rows="3"
+            placeholder="As palavras que você jurou, do seu jeito"
+            aria-label="Anotações sobre os Ideais">${esc(f.ideais)}</textarea>`) : ''}
         ${campo('Cultura', 'cultura', f.cultura)}
         ${moldura(`
           <span class="rotulo">Conexões</span>
@@ -525,9 +650,35 @@ function ligar() {
     condicao(alvo) {
       const f = fichaAtual();
       const nome = alvo.dataset.condicao;
-      const i = f.condicoes.indexOf(nome);
-      i < 0 ? f.condicoes.push(nome) : f.condicoes.splice(i, 1);
-      salvar(); desenharFicha();
+      const i = f.condicoes.findIndex((c) => c.nome === nome);
+      if (i >= 0) { f.condicoes.splice(i, 1); }
+      else {
+        const definicao = condicaoPorNome(nome);
+        const nova = { nome };
+        if (definicao?.valor) nova.valor = 1;
+        // Aprimorado precisa saber qual atributo; começa na Força e o jogador troca
+        if (definicao?.valor === 'atributo') nova.atributo = 'for';
+        f.condicoes.push(nova);
+      }
+      salvar(); desenharFicha(); tremer();
+    },
+
+    /* O número da condição: Exausto [−2], Aprimorado [+1]. No Aprimorado, o
+       passo percorre os atributos antes de subir o valor. */
+    'valor-condicao'(alvo) {
+      const f = fichaAtual();
+      const c = f.condicoes.find((x) => x.nome === alvo.dataset.condicao);
+      if (!c) return;
+      const delta = Number(alvo.dataset.delta);
+      if (condicaoPorNome(c.nome)?.valor === 'atributo') {
+        const ordem = ATRIBUTOS.map((a) => a.id);
+        const i = ordem.indexOf(c.atributo || 'for') + delta;
+        if (i >= 0 && i < ordem.length) c.atributo = ordem[i];
+        else { c.valor = Math.max(1, (Number(c.valor) || 1) + delta); }
+      } else {
+        c.valor = Math.max(1, (Number(c.valor) || 1) + delta);
+      }
+      salvar(); desenharFicha(); tremer();
     },
 
     'rolar-pericia'(alvo) {
@@ -604,6 +755,47 @@ function ligar() {
     'ver-pericia'(alvo) { abrirDescricaoDaPericia(alvo.dataset.pericia); },
 
     'ver-talento'(alvo) { abrirDescricaoDoTalento(alvo.dataset.item, fichaAtual()); },
+
+    'ver-condicao'(alvo) { abrirDescricaoDaCondicao(alvo.dataset.condicao); },
+
+    'ver-acao'(alvo) { abrirDescricaoDaAcao(alvo.dataset.nome); },
+
+    /* As ações de Radiante mexem na ficha: enchem a Investidura, aplicam as
+       condições de Aprimorado ou rolam a cura de Regenerar. */
+    'usar-acao'(alvo) {
+      const f = fichaAtual();
+      const acao = ACOES_RADIANTE.find((a) => a.nome === alvo.dataset.nome);
+      if (!acao) return;
+
+      if (acao.aplica === 'encherInvestidura') {
+        f.investidura = f.investiduraMaxima || 0;
+        recado('Investidura cheia');
+      } else if ((f.investidura || 0) < 1) {
+        recado('Sem Investidura'); return;
+      } else if (acao.aplica === 'aprimorar') {
+        f.investidura -= 1;
+        ['for', 'vel'].forEach((id) => {
+          const ja = f.condicoes.find((c) => c.nome === 'Aprimorado' && c.atributo === id);
+          if (ja) ja.valor = (Number(ja.valor) || 1) + 1;
+          else f.condicoes.push({ nome: 'Aprimorado', atributo: id, valor: 1 });
+        });
+        recado('Aprimorado +1 FOR e +1 VEL até o fim do próximo turno');
+      } else if (acao.aplica === 'regenerar') {
+        f.investidura -= 1;
+        const cura = rolarExpressao('1d6').soma + patamar(f);
+        f.vida = Math.min(vidaMaxima(f), f.vida + cura);
+        recado(`Regenerar: +${cura} de vida`);
+      }
+      salvar(); desenharFicha(); tremer();
+    },
+
+    /* Clicar no Ideal jurado desmarca; clicar num acima marca até ele. */
+    ideal(alvo) {
+      const f = fichaAtual();
+      const nivel = Number(alvo.dataset.nivel);
+      f.ideaisJurados = (f.ideaisJurados || 0) === nivel ? nivel - 1 : nivel;
+      salvar(); desenharFicha(); tremer();
+    },
 
     'subir-nivel'() { subirDeNivel(); },
 

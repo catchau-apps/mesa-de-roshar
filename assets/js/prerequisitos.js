@@ -6,7 +6,7 @@
    passar batido: melhor avisar do que liberar algo inválido.
    ========================================================================= */
 
-import { PERICIAS, FLUXOS } from './sistema.js';
+import { PERICIAS, FLUXOS, nivelDoIdeal } from './sistema.js';
 import { normalizar } from './pacote.js';
 
 const grad = (ficha, nome) => {
@@ -27,11 +27,11 @@ function avaliarClausula(texto, ficha) {
   if (m) return (ficha.nivel || 1) >= Number(m[1]);
 
   if (/falar o .*ideal/i.test(p)) {
-    // Jurar um Ideal é fato de mesa, não de ficha. Com o campo "Ideais
-    // falados" vazio não dá para afirmar nem negar — vira "confira você".
-    const jurados = normalizar(ficha.ideais || '').trim();
-    if (!jurados) return null;
-    return jurados.includes(normalizar(p.replace(/^falar\s+o?\s*/i, '')));
+    // A ficha registra até qual Ideal o personagem jurou; como eles são
+    // sequenciais, quem jurou o Terceiro também jurou o Primeiro.
+    const exigido = nivelDoIdeal(p);
+    if (!exigido) return null;
+    return (ficha.ideaisJurados || 0) >= exigido;
   }
 
   if (/ancestralidade cantor/i.test(p)) return /cantor/i.test(ficha.ancestralidade || '');

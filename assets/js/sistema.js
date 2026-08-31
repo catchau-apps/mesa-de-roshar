@@ -94,7 +94,29 @@ export function modificador(ficha, pericia) {
   return base + grad;
 }
 
-export const periciasDe = (ficha) => ficha.radiante ? [...PERICIAS, ...FLUXOS] : PERICIAS;
+/* --- ordens Radiantes (cap.5) -------------------------------------------
+   Cada ordem manipula exatamente dois fluxos, e o Radiante ganha uma perícia
+   para cada um deles ao falar o Primeiro Ideal, começando com 1 graduação em
+   cada. Ninguém tem os dez: a lista abaixo saiu da recompensa do Primeiro
+   Ideal de cada ordem. O livro básico traz nove ordens jogáveis.            */
+export const ORDENS_RADIANTES = {
+  'Alternauta':               ['Transformação', 'Transporte'],
+  'Corredor dos Ventos':      ['Adesão', 'Gravitação'],
+  'Dançarino de Precipícios': ['Abrasão', 'Progressão'],
+  'Guardião das Pedras':      ['Coesão', 'Tensão'],
+  'Plasmador':                ['Coesão', 'Transporte'],
+  'Pulverizador':             ['Abrasão', 'Divisão'],
+  'Rompe-céus':               ['Divisão', 'Gravitação'],
+  'Sentinela da Verdade':     ['Iluminação', 'Progressão'],
+  'Teceluz':                  ['Iluminação', 'Transformação'],
+};
+
+/** Os dois fluxos da ordem, ou nenhum enquanto ela não for escolhida. */
+export const fluxosDaOrdem = (ordem) =>
+  (ORDENS_RADIANTES[ordem] || []).map((nome) => FLUXOS.find((f) => f.nome === nome));
+
+export const periciasDe = (ficha) =>
+  ficha.radiante ? [...PERICIAS, ...fluxosDaOrdem(ficha.ordem)] : PERICIAS;
 
 /* --- limites da criação de personagem (p.18) --- */
 export const CRIACAO = {

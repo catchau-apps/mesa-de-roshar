@@ -16,7 +16,7 @@ export function fichaNova(nome = 'Novo personagem') {
     id: id(),
     nome, jogador: '',
     ancestralidade: '', cultura: '', trilhas: '',
-    nivel: 1, radiante: false,
+    nivel: 1, radiante: false, ordem: '',   // ordem Radiante define os dois fluxos
     atributos: { for: 0, vel: 0, int: 0, von: 0, con: 0, pre: 0 },
     pericias: {}, fluxos: {},
     periciasProprias: [],            // a linha em branco de cada coluna da ficha
@@ -62,7 +62,7 @@ function carregar() {
       PERICIAS.forEach((p) => { f.pericias[p.nome] ??= 0; });
       FLUXOS.forEach((p) => { f.fluxos[p.nome] ??= 0; });
       f.periciasProprias ??= [];
-      f.jogador ??= ''; f.marcos ??= ''; f.aparencia ??= '';
+      f.jogador ??= ''; f.marcos ??= ''; f.aparencia ??= ''; f.ordem ??= '';
       // objetivos viraram lista com progresso; texto antigo entra como linhas
       if (typeof f.objetivos === 'string') {
         f.objetivos = f.objetivos.split(/\r?\n/).map((t) => t.trim()).filter(Boolean)

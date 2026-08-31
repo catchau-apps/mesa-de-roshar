@@ -11,6 +11,7 @@ import {
   ATRIBUTOS, PERICIAS, FLUXOS, CONDICOES,
   vidaMaxima, focoMaximo, defesaFisica, defesaCognitiva, defesaEspiritual,
   modificador, movimento, dadoRecuperacao, sentidos, levantamento, patamar,
+  ORDENS_RADIANTES, fluxosDaOrdem,
 } from './sistema.js';
 import { fichaAtual, salvar, descansoLongo } from './estado.js';
 import { rolarExpressao, sinal } from './dados.js';
@@ -189,7 +190,10 @@ function recursos(f) {
 function pericias(f) {
   const coluna = (reino) => {
     const daCasa = PERICIAS.filter((p) => p.reino === reino);
-    const fluxos = f.radiante ? FLUXOS.filter((p) => atributoDoReino(p.atributo) === reino) : [];
+    // só os dois fluxos da ordem do personagem, nunca os dez
+    const fluxos = f.radiante
+      ? fluxosDaOrdem(f.ordem).filter((p) => atributoDoReino(p.atributo) === reino)
+      : [];
     const proprias = f.periciasProprias
       .map((p, i) => ({ ...p, indice: i }))
       .filter((p) => atributoDoReino(p.atributo) === reino);
@@ -356,6 +360,19 @@ function verso(f) {
                      style="width:17px;height:17px;min-height:auto;accent-color:var(--luz);padding:0">
               Cavaleiro Radiante
             </label>
+            ${f.radiante ? `
+              <label class="campo" style="margin-top:.5rem">
+                <span class="campo__rotulo">Ordem</span>
+                <select data-campo="ordem" style="border:1px solid var(--borda);padding:.3rem">
+                  <option value="">— escolha a ordem —</option>
+                  ${Object.keys(ORDENS_RADIANTES).map((o) => `
+                    <option value="${esc(o)}" ${o === f.ordem ? 'selected' : ''}>${esc(o)}</option>`).join('')}
+                </select>
+              </label>
+              <p class="campo__dica">${f.ordem
+                ? `Fluxos da ordem: <strong>${ORDENS_RADIANTES[f.ordem].join('</strong> e <strong>')}</strong>.
+                   Eles entram como perícias, uma graduação em cada ao falar o Primeiro Ideal.`
+                : 'Cada ordem manipula dois fluxos. Escolha a ordem para as perícias de fluxo aparecerem.'}</p>` : ''}
             <div class="grade grade--2" style="margin-top:.5rem;gap:.4rem">
               <label class="campo"><span class="campo__rotulo">Ajuste de vida</span>
                 <input type="number" data-campo="ajusteVida" value="${f.ajusteVida || 0}"
@@ -566,9 +583,18 @@ function ligar() {
       f[campoNome] = numericos.includes(campoNome)
         ? (campoNome === 'nivel' ? Math.max(1, Math.min(30, Number(valor) || 1)) : (Number(valor) || 0))
         : valor;
+
+      // Ao jurar o Primeiro Ideal o Radiante ganha uma perícia para cada fluxo
+      // da ordem, com 1 graduação em cada (cap.5). Só semeia o que está zerado,
+      // para nunca sobrescrever o que o jogador já anotou.
+      if (campoNome === 'ordem') {
+        fluxosDaOrdem(valor).forEach((fluxo) => {
+          if (!f.fluxos[fluxo.nome]) f.fluxos[fluxo.nome] = 1;
+        });
+      }
       salvar();
 
-      if (['nivel', 'radiante', 'ajusteVida', 'ajusteFoco', 'deflexao', 'investiduraMaxima'].includes(campoNome)) {
+      if (['nivel', 'radiante', 'ordem', 'ajusteVida', 'ajusteFoco', 'deflexao', 'investiduraMaxima'].includes(campoNome)) {
         desenharFicha();
       }
       if (campoNome === 'nome' || campoNome === 'nivel' || campoNome === 'trilhas') {

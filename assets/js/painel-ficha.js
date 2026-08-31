@@ -42,6 +42,25 @@ const campo = (rotulo, nome, valor, extras = '') => moldura(`
   <span class="rotulo">${rotulo}</span>
   <input data-campo="${nome}" value="${esc(valor)}" aria-label="${rotulo}" ${extras}>`);
 
+/* Campo numérico da ficha. Não usamos <input type="number">: ele não deixa
+   posicionar o cursor por código e ainda traz setinhas que atrapalham no
+   celular. Texto com teclado numérico resolve, e os passos de − e + cobrem
+   o caso comum, que é mexer de um em um. */
+function passoNumero(rotulo, nome, valor, minimo = null) {
+  return `
+    <div class="ajuste">
+      <span class="campo__rotulo">${rotulo}</span>
+      <div class="ajuste__controles">
+        <button type="button" data-acao="ajuste" data-alvo="${nome}" data-delta="-1"
+          aria-label="Diminuir ${rotulo}" ${minimo !== null && valor <= minimo ? 'disabled' : ''}>−</button>
+        <input data-campo="${nome}" value="${valor}" aria-label="${rotulo}"
+          inputmode="numeric" autocomplete="off" spellcheck="false">
+        <button type="button" data-acao="ajuste" data-alvo="${nome}" data-delta="1"
+          aria-label="Aumentar ${rotulo}">+</button>
+      </div>
+    </div>`;
+}
+
 /* ---------------------------------------------------------------- desenho */
 export function desenharFicha() {
   const f = fichaAtual();
@@ -51,7 +70,7 @@ export function desenharFicha() {
     <div class="painel__cabeca">
       <div>
         <h2>Ficha de personagem</h2>
-        <p>Nível ${f.nivel} · patamar ${patamar(f)}${f.trilhas ? ' · ' + esc(f.trilhas) : ''}</p>
+        <p data-saida="cabecalho">Nível ${f.nivel} · patamar ${patamar(f)}${f.trilhas ? ' · ' + esc(f.trilhas) : ''}</p>
       </div>
       <div class="painel__acoes">
         <button class="btn btn--pequeno" data-acao="recuperar">Recuperar (${dadoRecuperacao(f.atributos.von || 0)})</button>
@@ -90,7 +109,7 @@ function cabecalho(f) {
 
       <div class="folha__identidade">
         ${campo('Nome do personagem', 'nome', f.nome)}
-        ${campo('Nível', 'nivel', f.nivel, 'type="number" min="1" max="30"')}
+        ${campo('Nível', 'nivel', f.nivel, 'inputmode="numeric" autocomplete="off"')}
         ${campo('Trilhas', 'trilhas', f.trilhas)}
         ${campo('Ancestralidade', 'ancestralidade', f.ancestralidade)}
       </div>
@@ -138,7 +157,7 @@ function recursos(f) {
         <div class="recurso-folha__par">
           <div class="recurso-folha__lado">
             <span class="rotulo">${rotuloMax}</span>
-            <strong class="recurso-folha__valor num">${maximo}</strong>
+            <strong class="recurso-folha__valor num" data-saida="${chave}Maximo">${maximo}</strong>
           </div>
           <div class="recurso-folha__lado">
             <span class="rotulo rotulo--fraco">Atual</span>
@@ -160,7 +179,7 @@ function recursos(f) {
           <div class="recurso-folha__par">
             <div class="recurso-folha__lado">
               <span class="rotulo">Vida<br><span class="rotulo--fraco">máxima</span></span>
-              <strong class="recurso-folha__valor num">${vidaMaxima(f)}</strong>
+              <strong class="recurso-folha__valor num" data-saida="vidaMaximo">${vidaMaxima(f)}</strong>
             </div>
             <div class="recurso-folha__lado">
               <span class="rotulo rotulo--fraco">Atual</span>
@@ -173,7 +192,7 @@ function recursos(f) {
           </div>`)}
         <div class="escudo escudo--deflexao"><div>
           <span class="rotulo">Deflexão</span>
-          <strong class="escudo__valor num">${f.deflexao || 0}</strong>
+          <strong class="escudo__valor num" data-saida="deflexao">${f.deflexao || 0}</strong>
         </div></div>
       </div>
 
@@ -373,21 +392,16 @@ function verso(f) {
                 ? `Fluxos da ordem: <strong>${ORDENS_RADIANTES[f.ordem].join('</strong> e <strong>')}</strong>.
                    Eles entram como perícias, uma graduação em cada ao falar o Primeiro Ideal.`
                 : 'Cada ordem manipula dois fluxos. Escolha a ordem para as perícias de fluxo aparecerem.'}</p>` : ''}
-            <div class="grade grade--2" style="margin-top:.5rem;gap:.4rem">
-              <label class="campo"><span class="campo__rotulo">Ajuste de vida</span>
-                <input type="number" data-campo="ajusteVida" value="${f.ajusteVida || 0}"
-                  style="border:1px solid var(--borda);padding:.3rem"></label>
-              <label class="campo"><span class="campo__rotulo">Ajuste de foco</span>
-                <input type="number" data-campo="ajusteFoco" value="${f.ajusteFoco || 0}"
-                  style="border:1px solid var(--borda);padding:.3rem"></label>
-              <label class="campo"><span class="campo__rotulo">Deflexão</span>
-                <input type="number" data-campo="deflexao" value="${f.deflexao || 0}"
-                  style="border:1px solid var(--borda);padding:.3rem"></label>
-              ${f.radiante ? `<label class="campo"><span class="campo__rotulo">Investidura máx.</span>
-                <input type="number" data-campo="investiduraMaxima" value="${f.investiduraMaxima || 0}"
-                  style="border:1px solid var(--borda);padding:.3rem"></label>` : ''}
+            <div class="ajustes">
+              ${passoNumero('Ajuste de vida', 'ajusteVida', f.ajusteVida || 0)}
+              ${passoNumero('Ajuste de foco', 'ajusteFoco', f.ajusteFoco || 0)}
+              ${passoNumero('Deflexão', 'deflexao', f.deflexao || 0, 0)}
+              ${f.radiante ? passoNumero('Investidura máx.', 'investiduraMaxima', f.investiduraMaxima || 0, 0) : ''}
             </div>
-            <p class="campo__dica">Vida = 10 + FOR + ajuste · Foco = 2 + VON + ajuste.</p>
+            <p class="campo__dica">
+              Vida = 10 + FOR + ajuste · Foco = 2 + VON + ajuste.
+              Os ganhos de nível entram no ajuste: +5 nos níveis 2 a 5, +4+FOR no 6, +4 do 7 ao 10.
+            </p>
           </div>`)}
       </div>
 
@@ -430,6 +444,28 @@ function verso(f) {
           <textarea data-campo="conexoes" rows="5" aria-label="Conexões">${esc(f.conexoes)}</textarea>`)}
       </div>
     </div>`;
+}
+
+/* Enquanto se digita, "-" e "" ainda não são números: valem 0 para a conta,
+   mas o campo guarda o que o jogador escreveu — nada é reescrito por baixo. */
+function paraNumero(campo, valor) {
+  const n = Number(String(valor).trim());
+  if (campo === 'nivel') return Number.isFinite(n) ? Math.max(1, Math.min(30, n)) : 1;
+  return Number.isFinite(n) ? n : 0;
+}
+
+/** Repinta só os números que dependem dos campos digitáveis. */
+function atualizarSaidas(f) {
+  const escreve = (nome, texto) => {
+    const el = raiz.querySelector(`[data-saida="${nome}"]`);
+    if (el) el.textContent = texto;
+  };
+  escreve('vidaMaximo', vidaMaxima(f));
+  escreve('focoMaximo', focoMaximo(f));
+  escreve('investiduraMaximo', f.investiduraMaxima || 0);
+  escreve('deflexao', f.deflexao || 0);
+  escreve('cabecalho',
+    `Nível ${f.nivel} · patamar ${patamar(f)}${f.trilhas ? ' · ' + f.trilhas : ''}`);
 }
 
 /* ---------------------------------------------------------------- ações */
@@ -554,6 +590,14 @@ function ligar() {
       salvar(); desenharFicha(); tremer();
     },
 
+    ajuste(alvo) {
+      const f = fichaAtual();
+      const nome = alvo.dataset.alvo;
+      const minimo = ['deflexao', 'investiduraMaxima'].includes(nome) ? 0 : -Infinity;
+      f[nome] = Math.max(minimo, (Number(f[nome]) || 0) + Number(alvo.dataset.delta));
+      salvar(); desenharFicha(); tremer();
+    },
+
     recuperar() {
       const f = fichaAtual();
       const dado = dadoRecuperacao(f.atributos.von || 0);
@@ -574,15 +618,18 @@ function ligar() {
     raiz.querySelector(`[data-acao="por-item"][data-lista="${entrada.dataset.novo}"]`)?.click();
   });
 
+  const NUMERICOS = ['nivel', 'ajusteVida', 'ajusteFoco', 'deflexao', 'investiduraMaxima'];
+  /* Só estes mudam a estrutura da ficha (quais caixas existem). Os demais
+     mexem apenas em números já desenhados, e para esses basta repintar as
+     saídas — redesenhar tudo a cada tecla é o que fazia o cursor pular. */
+  const ESTRUTURAIS = ['radiante', 'ordem'];
+
   ligarEntradas(raiz, {
     '*'(alvo, valor) {
       const f = fichaAtual();
       const campoNome = alvo.dataset.campo;
-      const numericos = ['nivel', 'ajusteVida', 'ajusteFoco', 'deflexao', 'investiduraMaxima'];
 
-      f[campoNome] = numericos.includes(campoNome)
-        ? (campoNome === 'nivel' ? Math.max(1, Math.min(30, Number(valor) || 1)) : (Number(valor) || 0))
-        : valor;
+      f[campoNome] = NUMERICOS.includes(campoNome) ? paraNumero(campoNome, valor) : valor;
 
       // Ao jurar o Primeiro Ideal o Radiante ganha uma perícia para cada fluxo
       // da ordem, com 1 graduação em cada (cap.5). Só semeia o que está zerado,
@@ -594,13 +641,21 @@ function ligar() {
       }
       salvar();
 
-      if (['nivel', 'radiante', 'ordem', 'ajusteVida', 'ajusteFoco', 'deflexao', 'investiduraMaxima'].includes(campoNome)) {
-        desenharFicha();
-      }
-      if (campoNome === 'nome' || campoNome === 'nivel' || campoNome === 'trilhas') {
+      if (ESTRUTURAIS.includes(campoNome)) desenharFicha();
+      else atualizarSaidas(f);
+
+      if (['nome', 'nivel', 'trilhas'].includes(campoNome)) {
         document.dispatchEvent(new CustomEvent('ficha:renomeada'));
       }
     },
+  });
+
+  /* Ao sair do campo, o texto volta a mostrar o número que ficou guardado —
+     é aqui que "-" ou "" viram 0, e não no meio da digitação. */
+  raiz.addEventListener('focusout', (ev) => {
+    const alvo = ev.target.closest('[data-campo]');
+    if (!alvo || !NUMERICOS.includes(alvo.dataset.campo)) return;
+    alvo.value = fichaAtual()[alvo.dataset.campo] ?? 0;
   });
 
   // campos que não são do objeto raiz da ficha

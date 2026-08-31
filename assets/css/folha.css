@@ -307,3 +307,26 @@
 .objetivo-folha__marcas button::after{
   content:""; position:absolute; inset:-8px -2px;
 }
+
+/* ---------- campos numéricos com passos ---------- */
+.ajustes{ display:grid; gap:.5rem; margin-top:.6rem }
+@media (min-width:420px){ .ajustes{ grid-template-columns:1fr 1fr } }
+.ajuste__controles{ display:flex; align-items:stretch; gap:.25rem; margin-top:.2rem }
+.ajuste__controles input{
+  flex:1; min-width:0; text-align:center; font-weight:650; font-size:.95rem;
+  border:1px solid var(--borda); border-radius:var(--r-p);
+  padding:.35rem .3rem; background:var(--papel);
+}
+.ajuste__controles button{
+  flex:none; width:34px; min-height:34px; font-weight:700; font-size:1rem; line-height:1;
+  border:1px solid var(--borda); border-radius:var(--r-p);
+  background:var(--papel); color:var(--tinta-2); cursor:pointer;
+  font-family:inherit; transition:var(--transicao);
+}
+.ajuste__controles button:hover:not([disabled]){
+  background:var(--luz); border-color:var(--luz); color:#fff;
+}
+.ajuste__controles button[disabled]{ opacity:.35; cursor:default }
+
+/* o campo de nível fica no meio da caixa, como os outros da ficha */
+.folha input[inputmode="numeric"]{ font-variant-numeric:tabular-nums }

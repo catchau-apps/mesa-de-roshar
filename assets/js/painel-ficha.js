@@ -19,6 +19,7 @@ import { fichaAtual, salvar, descansoLongo } from './estado.js';
 import { rolarExpressao, sinal } from './dados.js';
 import { esc, recado, tremer, ligarAcoes, ligarEntradas, redesenharPreservandoFoco } from './ui.js';
 import { cartaoProgressao, subirDeNivel } from './assistente.js';
+import { baixarFolhaPDF } from './folha.js';
 import { abrirCatalogoDeTalentos, abrirDescricaoDaPericia,
          abrirDescricaoDoTalento, fichaDoTalento,
          abrirDescricaoDaCondicao, abrirDescricaoDaAcao } from './catalogo.js';
@@ -67,6 +68,10 @@ function passoNumero(rotulo, nome, valor, minimo = null) {
     </div>`;
 }
 
+/* Ficha sem nada escolhido ainda: vale oferecer o construtor. */
+const fichaEmBranco = (f) => !f.trilhas && !f.talentos.length
+  && Object.values(f.atributos).every((v) => !v);
+
 /* ---------------------------------------------------------------- desenho */
 export function desenharFicha() {
   const f = fichaAtual();
@@ -81,8 +86,18 @@ export function desenharFicha() {
       <div class="painel__acoes">
         <button class="btn btn--pequeno" data-acao="recuperar">Recuperar (${dadoRecuperacao(f.atributos.von || 0)})</button>
         <button class="btn btn--pequeno" data-acao="descanso">Descanso longo</button>
+        <button class="btn btn--pequeno" data-acao="baixar-pdf-ficha">Baixar PDF</button>
       </div>
     </div>
+
+    ${fichaEmBranco(f) ? `
+      <section class="convite-criacao">
+        <div>
+          <h3>Primeira vez?</h3>
+          <p>O construtor leva você pelos 8 passos do livro, explica cada escolha e calcula tudo sozinho. No fim, sai a ficha pronta e o PDF.</p>
+        </div>
+        <button class="btn btn--principal" data-acao="construtor">Criar personagem passo a passo</button>
+      </section>` : ''}
 
     <div class="folha">
       ${cabecalho(f)}
@@ -616,6 +631,15 @@ function atualizarSaidas(f) {
 /* ---------------------------------------------------------------- ações */
 function ligar() {
   ligarAcoes(raiz, {
+    async 'baixar-pdf-ficha'(alvo) {
+      if (alvo.disabled) return;
+      alvo.disabled = true;
+      alvo.textContent = 'Gerando…';
+      try { await baixarFolhaPDF(fichaAtual()); recado('PDF baixado'); }
+      catch (e) { console.error(e); recado('Não consegui gerar o PDF. Tente de novo.'); }
+      finally { alvo.disabled = false; alvo.textContent = 'Baixar PDF'; }
+    },
+
     vital(alvo) {
       const f = fichaAtual();
       const chave = alvo.dataset.vital;

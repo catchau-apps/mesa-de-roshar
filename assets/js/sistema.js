@@ -79,12 +79,40 @@ export const levantamento = (forca) => consultar(TABELA_LEVANTAMENTO, forca);
    Modificador de perícia = atributo + graduações (p.56).                  */
 export const patamar   = (f) => Math.min(5, Math.ceil((f.nivel || 1) / 5));
 export const gradMaxima = (f) => Math.min(5, patamar(f) + 1);
-export const vidaMaxima = (f) => 10 + (f.atributos.for || 0) + (Number(f.ajusteVida) || 0);
-export const focoMaximo = (f) => 2 + (f.atributos.von || 0) + (Number(f.ajusteFoco) || 0);
 
-export const defesaFisica     = (f) => 10 + (f.atributos.for || 0) + (f.atributos.vel || 0);
-export const defesaCognitiva  = (f) => 10 + (f.atributos.int || 0) + (f.atributos.von || 0);
-export const defesaEspiritual = (f) => 10 + (f.atributos.con || 0) + (f.atributos.pre || 0);
+/* --- talentos que mudam números da ficha ---------------------------------
+   O passo 8 da criação (p.23) manda somar "bônus de talentos": aqui está o
+   que cada um faz, para a ficha somar sozinha em vez de pedir ajuste manual.
+   Só os efeitos permanentes; o que depende de situação fica no texto.     */
+export const EFEITOS_DE_TALENTO = {
+  'Senhor de Si':    { defesa: { cognitivo: 2, espiritual: 2 }, nota: '+2 nas defesas Cognitiva e Espiritual' },
+  'Mente Ambiciosa': { defesa: { cognitivo: 2 }, nota: '+2 na defesa Cognitiva' },
+  'Resistente':      { vidaPorNivel: 1, nota: '+1 de vida máxima por nível' },
+  'Compostura':      { focoPorPatamar: 1, nota: '+1 de foco máximo por patamar' },
+};
+
+const normalizarNome = (s) => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+
+/** Soma o que os talentos da ficha fazem nas estatísticas. */
+export function efeitosDosTalentos(f) {
+  const total = { defesa: { fisico: 0, cognitivo: 0, espiritual: 0 }, vida: 0, foco: 0, fontes: [] };
+  const nomes = new Set((f.talentos || []).map(normalizarNome));
+  for (const [nome, e] of Object.entries(EFEITOS_DE_TALENTO)) {
+    if (!nomes.has(normalizarNome(nome))) continue;
+    for (const [reino, v] of Object.entries(e.defesa || {})) total.defesa[reino] += v;
+    if (e.vidaPorNivel) total.vida += e.vidaPorNivel * (f.nivel || 1);
+    if (e.focoPorPatamar) total.foco += e.focoPorPatamar * patamar(f);
+    total.fontes.push({ nome, nota: e.nota });
+  }
+  return total;
+}
+
+export const vidaMaxima = (f) => 10 + (f.atributos.for || 0) + efeitosDosTalentos(f).vida + (Number(f.ajusteVida) || 0);
+export const focoMaximo = (f) => 2 + (f.atributos.von || 0) + efeitosDosTalentos(f).foco + (Number(f.ajusteFoco) || 0);
+
+export const defesaFisica     = (f) => 10 + (f.atributos.for || 0) + (f.atributos.vel || 0) + efeitosDosTalentos(f).defesa.fisico;
+export const defesaCognitiva  = (f) => 10 + (f.atributos.int || 0) + (f.atributos.von || 0) + efeitosDosTalentos(f).defesa.cognitivo;
+export const defesaEspiritual = (f) => 10 + (f.atributos.con || 0) + (f.atributos.pre || 0) + efeitosDosTalentos(f).defesa.espiritual;
 
 /**
  * Modificador de perícia: atributo + graduações, já com o que as condições
@@ -312,6 +340,106 @@ export const TRILHAS = [
   { nome: 'Líder',     periciaInicial: 'Liderança',  talentoChave: 'Comando Decisivo',
     especializacoes: ['Campeão', 'Oficial', 'Político'] },
 ];
+
+/* Em que cada trilha costuma apoiar o personagem, para o construtor sugerir.
+   Saiu das perícias que aparecem nos pré-requisitos de cada árvore (cap.4);
+   com o pacote instalado, o construtor recalcula isso pela árvore real.   */
+export const PERFIL_DAS_TRILHAS = {
+  Agente:    { tema: 'Resolve problemas com astúcia ou mãos hábeis: investigação, espionagem, furtos.',
+               pericias: ['Intuição', 'Dedução', 'Dissimulação', 'Ladroagem', 'Furtividade', 'Percepção'] },
+  Caçador:   { tema: 'Atirador e rastreador: acha o alvo, persegue e elimina à distância.',
+               pericias: ['Percepção', 'Sobrevivência', 'Armamento Leve', 'Agilidade', 'Furtividade', 'Atletismo'] },
+  Emissário: { tema: 'Negociador e inspirador: convence, acalma e fortalece aliados.',
+               pericias: ['Disciplina', 'Persuasão', 'Intuição', 'Liderança', 'Saber', 'Dissimulação'] },
+  Erudito:   { tema: 'Pensador que planeja, constrói e cura: estratégia, fabriais e medicina.',
+               pericias: ['Saber', 'Manufatura', 'Medicina', 'Dedução', 'Disciplina', 'Intuição'] },
+  Guerreiro: { tema: 'Lutador de linha de frente: posturas, armas pesadas e resistência.',
+               pericias: ['Atletismo', 'Armamento Pesado', 'Armamento Leve', 'Agilidade', 'Intimidação', 'Disciplina'] },
+  Líder:     { tema: 'Comandante que guia aliados em combate e na política.',
+               pericias: ['Liderança', 'Persuasão', 'Atletismo', 'Intimidação', 'Disciplina', 'Dissimulação'] },
+};
+
+/** O que cada atributo governa, em uma linha, para explicar na criação. */
+export const PAPEL_DOS_ATRIBUTOS = {
+  for: 'Defesa Física, vida máxima, levantamento',
+  vel: 'Defesa Física, movimento',
+  int: 'Defesa Cognitiva, especialidades extras',
+  von: 'Defesa Cognitiva, foco máximo, dado de recuperação',
+  con: 'Defesa Espiritual, distância dos sentidos',
+  pre: 'Defesa Espiritual, influência sobre os outros',
+};
+
+/* --- equipamento (cap.7, p.246–252) --------------------------------------
+   Só a mecânica de cada item: perícia, dano, alcance, traços e preço. */
+export const ARMAS = [
+  // armamento leve (p.246)
+  { nome: 'Arco Curto',     pericia: 'Armamento Leve',   dano: '1d6', tipo: 'afiado',     alcance: 'Distância [24/96]', tracos: 'Duas Mãos',             perito: 'Saque Rápido', preco: 80 },
+  { nome: 'Azagaia',        pericia: 'Armamento Leve',   dano: '1d6', tipo: 'afiado',     alcance: 'Corpo a corpo',     tracos: 'Arremesso [9/36]',      perito: 'Indireta', preco: 20 },
+  { nome: 'Cajado',         pericia: 'Armamento Leve',   dano: '1d6', tipo: 'impactante', alcance: 'Corpo a corpo',     tracos: 'Discreta, Duas Mãos',   perito: 'Defensiva', preco: 1 },
+  { nome: 'Espada Lateral', pericia: 'Armamento Leve',   dano: '1d6', tipo: 'afiado',     alcance: 'Corpo a corpo',     tracos: 'Saque Rápido',          perito: 'Mão Inábil', preco: 40 },
+  { nome: 'Faca',           pericia: 'Armamento Leve',   dano: '1d4', tipo: 'afiado',     alcance: 'Corpo a corpo',     tracos: 'Discreta',              perito: 'Arremesso [6/18]', preco: 8 },
+  { nome: 'Funda',          pericia: 'Armamento Leve',   dano: '1d4', tipo: 'impactante', alcance: 'Distância [9/36]',  tracos: 'Discreta',              perito: 'Indireta', preco: 2 },
+  { nome: 'Lança Curta',    pericia: 'Armamento Leve',   dano: '1d8', tipo: 'afiado',     alcance: 'Corpo a corpo',     tracos: 'Duas Mãos',             perito: 'perde Duas Mãos', preco: 10 },
+  { nome: 'Maça',           pericia: 'Armamento Leve',   dano: '1d6', tipo: 'impactante', alcance: 'Corpo a corpo',     tracos: '—',                     perito: 'Ímpeto', preco: 20 },
+  { nome: 'Rapieira',       pericia: 'Armamento Leve',   dano: '1d6', tipo: 'afiado',     alcance: 'Corpo a corpo',     tracos: 'Saque Rápido',          perito: 'Defensiva', preco: 100 },
+  // armamento pesado (p.247)
+  { nome: 'Alabarda',       pericia: 'Armamento Pesado', dano: '1d10', tipo: 'afiado',     alcance: 'Corpo a corpo',          tracos: 'Duas Mãos',               perito: 'Corpo a corpo [+1,5]', preco: 40 },
+  { nome: 'Arco Longo',     pericia: 'Armamento Pesado', dano: '1d6',  tipo: 'afiado',     alcance: 'Distância [45/180]',     tracos: 'Duas Mãos',               perito: 'Indireta', preco: 100 },
+  { nome: 'Besta',          pericia: 'Armamento Pesado', dano: '1d8',  tipo: 'afiado',     alcance: 'Distância [30/120]',     tracos: 'Carregada [1], Duas Mãos', perito: 'Mortal', preco: 200 },
+  { nome: 'Escudo',         pericia: 'Armamento Pesado', dano: '1d4',  tipo: 'impactante', alcance: 'Corpo a corpo',          tracos: 'Defensiva',               perito: 'Mão Inábil', preco: 10 },
+  { nome: 'Espada Longa',   pericia: 'Armamento Pesado', dano: '1d8',  tipo: 'afiado',     alcance: 'Corpo a corpo',          tracos: 'Duas Mãos, Saque Rápido', perito: 'perde Duas Mãos', preco: 60 },
+  { nome: 'Lança Longa',    pericia: 'Armamento Pesado', dano: '1d8',  tipo: 'afiado',     alcance: 'Corpo a corpo [+1,5]',   tracos: 'Duas Mãos',               perito: 'Defensiva', preco: 15 },
+  { nome: 'Machado',        pericia: 'Armamento Pesado', dano: '1d6',  tipo: 'afiado',     alcance: 'Corpo a corpo',          tracos: 'Arremesso [6/18]',        perito: 'Mão Inábil', preco: 20 },
+  { nome: 'Martelo',        pericia: 'Armamento Pesado', dano: '1d10', tipo: 'impactante', alcance: 'Corpo a corpo',          tracos: 'Duas Mãos',               perito: 'Ímpeto', preco: 40 },
+  { nome: 'Montante',       pericia: 'Armamento Pesado', dano: '1d10', tipo: 'afiado',     alcance: 'Corpo a corpo',          tracos: 'Duas Mãos',               perito: 'Mortal', preco: 200 },
+];
+
+/* Todo personagem pode atacar desarmado (Atletismo, 1 de dano). */
+export const DESARMADO = { nome: 'Desarmado', pericia: 'Atletismo', dano: '1', tipo: 'impactante', alcance: 'Corpo a corpo', tracos: '—', perito: '—', preco: 0 };
+
+export const ARMADURAS = [
+  { nome: 'Uniforme',            deflexao: 0, forca: 0, tracos: 'Apresentável', preco: 40 },
+  { nome: 'Armadura de Couro',   deflexao: 1, forca: 0, tracos: '—',            preco: 60 },
+  { nome: 'Cota de Malha',       deflexao: 2, forca: 3, tracos: 'Desajeitada [3]', preco: 80 },
+  { nome: 'Placa Peitoral',      deflexao: 2, forca: 3, tracos: 'Desajeitada [3]', preco: 120 },
+  { nome: 'Meia Armadura',       deflexao: 3, forca: 4, tracos: 'Desajeitada [4]', preco: 400 },
+  { nome: 'Armadura Completa',   deflexao: 4, forca: 5, tracos: 'Desajeitada [5]', preco: 1600 },
+];
+
+const armasDe = (pericia) => ARMAS.filter((a) => a.pericia === pericia).map((a) => a.nome);
+
+/* Conjuntos iniciais (p.243): o que dá para automatizar. A lista de itens
+   vem do pacote; aqui só as escolhas de arma, a armadura e o dado de marcos. */
+export const CONJUNTOS = {
+  'Acadêmico': { armas: { quantas: 1, opcoes: ['Faca', 'Funda', 'Cajado'] }, armadura: 'Uniforme',
+                 marcos: '3d12', especialidade: 'Literatura' },
+  'Artesão':   { armas: { quantas: 1, opcoes: ['Martelo', ...armasDe('Armamento Leve')] }, armadura: 'Armadura de Couro',
+                 marcos: '4d8' },
+  'Militar':   { armas: { quantas: 2, opcoes: ARMAS.map((a) => a.nome) }, armadura: 'Cota de Malha',
+                 marcos: '2d6', nota: 'Também vem com uniforme.' },
+  'Cortesão':  { armas: { quantas: 1, opcoes: ['Espada Lateral', 'Montante', 'Espada Longa', 'Arco Longo'] }, armadura: '',
+                 marcos: '4d20', conexao: 'Patrono da sua casa nobre' },
+  'Prisioneiro': { armas: { quantas: 0, opcoes: [] }, armadura: '', marcos: '',
+                   conexao: 'Um espreno Radiante que começou a se conectar com você' },
+  'Submundo':  { armas: { quantas: 2, opcoes: armasDe('Armamento Leve') }, armadura: 'Armadura de Couro',
+                 marcos: '1d20' },
+};
+
+/* Especialidades de exemplo (p.52–54), para escolher com um toque. */
+export const ESPECIALIDADES_UTILIDADE = [
+  'Andar a Cavalo', 'Cuidado de Animais', 'Engenharia', 'Estratégia Militar', 'História',
+  'Manufatura de Arma', 'Manufatura de Armadura', 'Manufatura de Equipamento', 'Religião',
+  'Literatura', 'Submundo', 'Alta Sociedade', 'Vida Militar',
+];
+
+/** Marcos do conjunto: "3d12" → soma rolada. */
+export function rolarMarcos(expr) {
+  const m = /^(\d+)d(\d+)$/.exec(expr || '');
+  if (!m) return 0;
+  let soma = 0;
+  for (let i = 0; i < Number(m[1]); i += 1) soma += 1 + Math.floor(Math.random() * Number(m[2]));
+  return soma;
+}
 
 export const ANCESTRALIDADES = ['Humano', 'Cantor'];
 

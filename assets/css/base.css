@@ -16,7 +16,7 @@
   --borda-forte:  #b2b9a9;
   --tinta:        #1d211c;
   --tinta-2:      #4b524a;
-  --tinta-3:      #6a7168;
+  --tinta-3:      #5e655c;   /* 4,8:1 até no papel-2 (medido, WCAG 1.4.3) */
 
   /* --- acentos --- */
   --ambar:        #a05f10;   /* esferas infundidas */

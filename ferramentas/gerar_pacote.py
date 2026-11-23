@@ -157,13 +157,16 @@ GLIFOS = {
 }
 # Uma linha de pre-requisito que termina nestas palavras esta pela metade: o
 # que completa ela vem na linha seguinte, mesmo comecando com maiuscula.
-PENDURADO = re.compile(r"(?:[;,]|\b(?:talento|talento-?chave|e|ou|de|da|do|com))\s*$", re.I)
+PENDURADO = re.compile(r"(?:[;,]|\b(?:talento-?|talento-?chave|e|ou|de|da|do|com))\s*$", re.I)
 
 GLIFO_INICIAL = re.compile(r"^([▶▷↻★∞*0-38Rr])\s*(?=[A-ZÁÂÃÉÊÍÓÔÕÚÇ])")
 # Nas paginas de fluxo o nome do fluxo ("transformação") vem antes do glifo, e
 # as vezes sobra o fim da descricao anterior. O nome do talento e o que vem
 # depois do ultimo glifo da linha.
-GLIFO_INTERNO = re.compile(r"^.*[^\w]?([▶▷↻★∞*0-38Rr])\s*(?=[A-ZÁÂÃÉÊÍÓÔÕÚÇ])")
+# Letra ou digito so conta como glifo quando esta solto ("R Golpe"), nunca no
+# meio de palavra: "Coletar Evidência" virava "Evidência" com ativacao reacao.
+GLIFO_INTERNO = re.compile(
+    r"^(?:.*\W)?([▶▷↻★∞*]|(?<!\w)[0-38Rr](?=\s))\s*(?=[A-ZÁÂÃÉÊÍÓÔÕÚÇ])")
 
 ABRE_TRILHA = re.compile(r"Especializa[çc][õo]es de\s+([A-ZÁÂÃÉÊÍÓÔÕÚÇ][\wÁ-Úá-úãõçâêô]+)")
 ESPECIALIZACAO = re.compile(
@@ -289,11 +292,20 @@ def limpar_nome(n: str) -> tuple[str, str]:
     # rotulo de secao em minusculas antes do nome ("coesão Lança de Pedra")
     n = re.sub(r"^(?:[a-zà-ú]+\s+)+(?=[A-ZÁÂÃÉÊÍÓÔÕÚÇ])", "", n)
     n = re.sub(r"^[▶▷↻★∞*0-9\s]+", "", n)
+    # credito do ilustrador em caixa alta colado antes do nome ("ANTTI HAKOSAARI Olhar Vigilante")
+    n = re.sub(r"^(?:[A-ZÁÂÃÉÊÍÓÔÕÚÇ'’.-]{2,}\s+)+(?=[▶▷↻★∞*0-9\s]*[A-ZÁÂÃÉÊÍÓÔÕÚÇ][a-zà-ú])", "", n)
+    m = GLIFO_INICIAL.match(n)
+    if m:
+        ativacao = ativacao or GLIFOS.get(m.group(1), "")
+        n = n[m.end():]
+    n = re.sub(r"^[▶▷↻★∞*0-9\s]+", "", n)
     n = LEGENDA_CUSTO.sub("", n)
     n = re.sub(r"\s*\([^)]*\)\s*$", "", n)
     if n.count(")") > n.count("("):
         n = re.sub(r"\s*\(.*$", "", n.split(")")[0])
     n = juntar_palavras_partidas(KERNING.sub(r"\1\2", n))
+    n = re.sub(r"\b([A-ZÁÉÍÓÚ])F(?=[a-zà-ú])", r"\1f", n)   # ligadura: "EFiciente"
+    n = re.sub(r"^[▶▷↻★∞*\s]+", "", n)
     return n.strip(" .:-"), ativacao
 
 
@@ -329,6 +341,22 @@ def fatiar_talentos(txt: str):
         yield nome, bloco, m.start()
 
 
+NOMES_TALENTOS: set[str] = set()
+
+
+def marcar_talentos(pre: str) -> str:
+    """Clausula que e' so nome de talento ("Contatos na Alta Sociedade", "A
+    ou B") ganha a palavra "talento", para o site saber o que conferir."""
+    saida = []
+    for clausula in pre.split(";"):
+        c = clausula.strip()
+        nomes = [n.strip() for n in re.split(r",|\bou\b", c) if n.strip()]
+        if nomes and all(n in NOMES_TALENTOS for n in nomes):
+            c = "talento " + c
+        saida.append(c)
+    return "; ".join(x for x in saida if x)
+
+
 def montar_regex_prerequisito(nomes_de_talentos: list[str]) -> re.Pattern:
     """Uma clausula de pre-requisito so tem estas formas conhecidas.
 
@@ -343,7 +371,7 @@ def montar_regex_prerequisito(nomes_de_talentos: list[str]) -> re.Pattern:
         rf"(?:{ideais}"
         rf"|N[íi]vel\s+\d+\s*\+?"
         rf"|Ancestralidade\s+\w+"
-        rf"|[Tt]alento(?:-?\s?chave)?\s+(?:{talentos})"
+        rf"|(?:[Tt]alento(?:-?\s?chave)?\s+)?(?:{talentos})(?:\s*(?:,|\bou\b)\s*(?:{talentos}))*"
         rf"|(?:{pericias})\s*\+?\s*\d+\s*\+?"
         rf"|nenhum)"
     )
@@ -483,17 +511,39 @@ def concluir_talentos(crus, regex_pre):
                     break
             pre = uma_linha(" ".join(pedaco))
             sobra = chr(10).join(partes[len(pedaco):])
+            # "...; talento-" + "-chave Marcar Presa Seu companheiro...": a
+            # ultima clausula tem gramatica conhecida, entao ela diz onde parar
+            pre = re.sub(r"talento\s*-\s*-?\s*chave", "talento-chave", pre)
+            if ";" in pre:
+                cabeca_pre, cauda = pre.rsplit(";", 1)
+                fim = regex_pre.match(cauda)
+                if fim and cauda[fim.end():].strip():
+                    pre = f"{cabeca_pre}; {uma_linha(fim.group(1))}"
+                    sobra = cauda[fim.end():].strip() + chr(10) + sobra
 
         descricao = limpar_corrido("\n".join(x for x in (sobra, depois) if x))
         descricao = LEGENDA.split(descricao)[0].strip()
         descricao = re.sub(r"\s*Cap[íi]tulo\s+\d+:.*$", "", descricao, flags=re.S).strip()
+        # depois do credito do ilustrador o PDF costuma emendar o resumo do
+        # proximo talento da arvore ("DARKO STOJANOVIC\n★ Kata Praticado ...")
+        descricao = re.split(r"\n[▶▷↻★∞]\s*[A-ZÁÂÃÉÊÍÓÔÕÚÇ]", descricao)[0]
+        # abertura da especializacao seguinte e legenda de ilustracao em caixa
+        # mista ("um cAntor em formA hábil") nao fazem parte do talento
+        descricao = re.split(r"\s*Especializa[çc][ãa]o\s+\S+\s+Os talentos a seguir", descricao)[0]
+        descricao = re.sub(r"\n[^\n]*\b[a-zà-ú]+[A-ZÁÂÃÉÊÍÓÔÕÚÇ][^\n]*$", "", descricao)
+        descricao = re.sub(r"\n(?:[A-ZÁÂÃÉÊÍÓÔÕÚÇ'’.-]{2,}[ ]?){2,}(?=\n|$)", "", descricao).strip()
+        # credito do ilustrador sobrando no fim ("... fica Focado. ANTTI HAKOSAARI")
+        descricao = re.sub(r"(?:\s+[A-ZÁÂÃÉÊÍÓÔÕÚÇ'’.-]{2,}){2,}\s*$", "", descricao).strip()
         if len(descricao) < 25:
             continue
 
         prontos.append({
+            # a entrada completa traz "Ativação:" em linha propria; o resumo da
+            # arvore nao, e costuma omitir o talento exigido no pre-requisito
+            "_completo": bool(m),
             "nome": c["nome"], "grupo": c["grupo"],
             "especializacao": c["especializacao"],
-            "preRequisitos": pre.strip(" .;:") or "nenhum",
+            "preRequisitos": marcar_talentos(pre.strip(" .;:")) or "nenhum",
             "ativacao": ativacao,
             "custo": achar_custo(descricao),
             "resumo": primeira_frase(descricao),
@@ -502,14 +552,17 @@ def concluir_talentos(crus, regex_pre):
         })
 
     # O livro repete cada talento na arvore e na pagina de descricao. Fica a
-    # versao com ativacao reconhecida e, entre iguais, a de texto mais longo.
+    # entrada completa (pre-requisito inteiro, texto do talento e nada do
+    # vizinho da arvore); entre iguais, a com ativacao e o texto mais longo.
+    nota = lambda t: (t["_completo"], bool(t["ativacao"]), len(t["descricao"]))
     vistos = {}
     for t in prontos:
         chave = (t["nome"], t["grupo"])
         anterior = vistos.get(chave)
-        nota = (bool(t["ativacao"]), len(t["descricao"]))
-        if not anterior or nota > (bool(anterior["ativacao"]), len(anterior["descricao"])):
+        if not anterior or nota(t) > nota(anterior):
             vistos[chave] = t
+    for t in vistos.values():
+        t.pop("_completo", None)
 
     return juntar_nomes_truncados(sorted(
         vistos.values(), key=lambda t: (t["grupo"], t["especializacao"], t["nome"])))
@@ -558,6 +611,83 @@ def extrair_blocos(paginas, faixa, nomes, prefixo):
         if len(corpo) > len(achados.get(m.group(1), "")):
             achados[m.group(1)] = corpo[:700]
     return achados
+
+
+# Cada cultura abre com o titulo no masculino ("Alethiano"), segue com o
+# resumo, a lista "Nomes Alethianos" e o bloco "Especialidade Alethiana". O
+# pypdf embaralha as colunas, entao cada pedaco e' achado pela sua ancora, e
+# nao pela ordem em que aparece.
+TITULO_CULTURA = {
+    "Alethiano": "Alethiana", "Azishiano": "Azishiana", "Herdaziano": "Herdaziana",
+    "Irialiano": "Irialiana", "Kharbranthiano": "Kharbranthiana", "Natan": "Natan",
+    "Ouvinte": "Ouvinte", "Reshiano": "Reshiana", "Shino": "Shina",
+    "Thayleno": "Thaylena", "Unkalakiano": "Unkalakiana", "Vedeno": "Vedena",
+    "Viajante": "Viajante",
+}
+
+
+def extrair_culturas(paginas, faixa=(36, 48)):
+    linhas = "\n".join(
+        p["texto"] for p in sorted(paginas, key=lambda x: x["pagina"])
+        if faixa[0] <= p["pagina"] <= faixa[1]
+    ).split("\n")
+
+    def raiz(palavra):
+        return palavra.lower()[:4]      # "Shinos" e "Shina" dividem a raiz
+
+    por_raiz = {raiz(f): f for f in TITULO_CULTURA.values()}
+
+    def ancora(linha):
+        """(tipo, cultura) se a linha abre um pedaco, senao None."""
+        l = linha.strip()
+        if l in TITULO_CULTURA:
+            return "resumo", TITULO_CULTURA[l]
+        m = re.match(r"^Nomes\s+(\w+)\s*$", l)
+        if m and raiz(m.group(1)) in por_raiz:
+            return "nomes", por_raiz[raiz(m.group(1))]
+        m = re.match(r"^Especialidade\s+(?:de\s+)?(\w+)\s*$", l)
+        if m and raiz(m.group(1)) in por_raiz:
+            return "especialidade", por_raiz[raiz(m.group(1))]
+        return None
+
+    def fim_de_bloco(linha):
+        l = linha.strip()
+        return (ancora(l) is not None
+                or re.match(r"^Cap[íi]tulo\s+\d+", l)
+                or re.search(r"[a-zà-ú][A-ZÁÂÃÉÊÍÓÔÕÚÇ]", l)             # legenda "AlethiAno"
+                or re.fullmatch(r"(?:[A-ZÁÂÃÉÊÍÓÔÕÚÇ'’.-]{2,}\s?){2,}", l))  # ilustrador
+
+    achados = {f: {"resumo": "", "nomes": "", "especialidade": ""} for f in TITULO_CULTURA.values()}
+    i = 0
+    while i < len(linhas):
+        a = ancora(linhas[i])
+        if not a:
+            i += 1
+            continue
+        tipo, cultura = a
+        j = i + 1
+        corpo = []
+        while j < len(linhas) and not fim_de_bloco(linhas[j]):
+            corpo.append(linhas[j])
+            j += 1
+            if tipo == "nomes" and corpo[-1].rstrip().endswith("."):
+                break
+        texto = limpar_corrido("\n".join(corpo)).strip()
+        if len(texto) > len(achados[cultura][tipo]):
+            achados[cultura][tipo] = texto
+        i = j
+
+    saida = []
+    for nome in CULTURAS:
+        a = achados.get(nome, {})
+        nomes = [n.strip(" .") for n in re.split(r",\s*", a.get("nomes", "")) if n.strip(" .")]
+        saida.append({
+            "nome": nome,
+            "resumo": a.get("resumo", "")[:900],
+            "descricao": a.get("especialidade", "")[:900],
+            "nomes": [n for n in nomes if len(n) <= 20],
+        })
+    return saida
 
 
 def extrair_pericias(paginas):
@@ -660,6 +790,7 @@ def main() -> int:
         # o regex de pre-requisito precisa saber quais nomes de talento existem
         nomes = sorted({c["nome"] for c in crus_h + crus_r + crus_c})
         regex_pre = montar_regex_prerequisito(nomes)
+        NOMES_TALENTOS.update(nomes)
 
         talentos["heroicos"] = concluir_talentos(crus_h, regex_pre)
         talentos["radiantes"] = concluir_talentos(crus_r, regex_pre)
@@ -667,8 +798,7 @@ def main() -> int:
 
         achados_conj = extrair_blocos(regras, (240, 248), CONJUNTOS, "Conjunto")
         conjuntos = [{"nome": n, "descricao": achados_conj.get(n, ""), "pagina": 243} for n in CONJUNTOS]
-        achados_cult = extrair_blocos(regras, (36, 48), CULTURAS, "Especialidade")
-        culturas = [{"nome": n, "descricao": achados_cult.get(n, "")} for n in CULTURAS]
+        culturas = extrair_culturas(regras)
         pericias = extrair_pericias(regras)
 
     pacote = {

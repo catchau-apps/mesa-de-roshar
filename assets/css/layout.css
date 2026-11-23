@@ -57,7 +57,7 @@
   .navegacao__lista{ overflow:visible }
   .navegacao__botao{
     flex:1; flex-direction:column; gap:.15rem; padding:.5rem .2rem;
-    font-size:.66rem; letter-spacing:.01em; border-bottom:none; border-top:2px solid transparent;
+    font-size:.72rem; letter-spacing:.01em; border-bottom:none; border-top:2px solid transparent;
   }
   .navegacao__botao[aria-selected="true"]{ border-top-color:var(--luz) }
   .navegacao__botao svg{ width:21px; height:21px }

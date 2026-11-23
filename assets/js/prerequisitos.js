@@ -37,8 +37,10 @@ function avaliarClausula(texto, ficha) {
   if (/ancestralidade cantor/i.test(p)) return /cantor/i.test(ficha.ancestralidade || '');
   if (/ancestralidade humano/i.test(p)) return /humano/i.test(ficha.ancestralidade || '');
 
+  // "talento Formas de Acuidade, Formas de Determinação ou Formas de Sabedoria":
+  // basta ter um deles
   m = /talento(?:-?\s?chave)?\s+(.+)$/i.exec(p);
-  if (m) return temTalento(ficha, m[1].trim());
+  if (m) return m[1].split(/,|\s+ou\s+/).some((nome) => nome.trim() && temTalento(ficha, nome.trim()));
 
   m = /^(.+?)\s*(\d+)\s*\+?$/.exec(p);
   if (m) {

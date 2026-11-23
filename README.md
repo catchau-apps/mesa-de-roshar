@@ -22,9 +22,19 @@ combate. Roda no navegador, funciona sem internet e não pede conta nenhuma.
   conferido contra a sua ficha (✓ atende, ✕ falta). Um toque manda para a ficha.
 - **Descrição das perícias** — toque no nome da perícia para ler o que o livro
   diz sobre ela.
-- **Construtor em 8 passos** — conta os 12 pontos de atributo, respeita os
-  limites da criação e só oferece talento cujo pré-requisito você cumpre.
-  Dá para fechar no meio e retomar depois.
+- **Construtor em 8 passos** — segue o capítulo 1 do livro e explica cada
+  escolha em uma frase. Mostra ao vivo o que cada ponto muda (perícias,
+  defesas, vida, foco, movimento), sugere atributos e perícias pela trilha
+  escolhida, dá as especialidades extras do Intelecto, só oferece talento cujo
+  pré-requisito você cumpre (e mostra os que faltam pouco), escolhe as armas
+  do conjunto inicial com o ataque já calculado, põe a deflexão da armadura e
+  rola os marcos. Dá para fechar no meio e retomar depois.
+- **Ficha em PDF** — frente e verso no arranjo da ficha oficial, em PDF
+  vetorial gerado no próprio navegador (funciona offline). Botão na ficha e
+  no último passo do construtor.
+- **Bônus aplicados sozinhos** — talentos que mudam números (Senhor de Si,
+  Mente Ambiciosa, Resistente, Compostura) entram nas defesas, vida e foco
+  sem ajuste manual; especialidades que talentos e conjuntos dão também.
 - **Rolador** — d20 + modificador, vantagem e desvantagem empilháveis, dado de
   trama com Oportunidade e Complicação aplicadas na conta, e dano de arma já
   somando o modificador da perícia.
@@ -82,6 +92,10 @@ dá para versionar o pacote junto e ninguém precisa gerar o seu: tire a linha
 `pacote.json` do `.gitignore`. A ferramenta não muda; muda só quem consegue
 baixar.
 
+Atualizou o site? Gere o pacote de novo: o gerador passou a separar direito
+os talentos (pré-requisito completo, nomes inteiros, sem o texto do talento
+vizinho) e as culturas (resumo, lista de nomes e especialidade).
+
 O gerador cuida sozinho de algumas armadilhas do PDF: descobre quantas páginas
 o PDF está adiantado em relação à numeração impressa, junta palavras quebradas
 por hífen no fim da linha e corrige a ligadura "fi" que sai como F maiúsculo.
@@ -92,11 +106,12 @@ por hífen no fim da linha e corrige a ligadura "fi" que sai como F maiúsculo.
 index.html              página inicial
 app.html                a ferramenta
 assets/
-  css/  base · componentes · layout · ficha · folha · site
+  css/  base · componentes · layout · ficha · folha · criacao · site
   js/   sistema · estado · dados · pacote · ui · prerequisitos
         assistente (progressão) · catalogo (talentos e perícias)
         painel-ficha · painel-dados · painel-regras
-        painel-combate · painel-referencia · construtor · app
+        painel-combate · painel-referencia · construtor · folha (PDF) · app
+  vendor/ jsPDF e svg2pdf.js (MIT), carregados só ao baixar o PDF
 ferramentas/
   gerar_pacote.py       lê os seus PDFs e monta o pacote de dados
   gerar_previa.py       empacota o site num HTML só, para conferir o visual
@@ -110,4 +125,6 @@ páginas citadas são as **numeradas no livro**, não as do PDF.
 ## Licença
 
 Código sob [MIT](LICENSE). A licença cobre o código, não o conteúdo do
-Cosmere RPG.
+Cosmere RPG. `assets/vendor/` traz o [jsPDF](https://github.com/parallax/jsPDF)
+2.5.2 e o [svg2pdf.js](https://github.com/yWorks/svg2pdf.js) 2.2.4, ambos MIT,
+com a licença no cabeçalho de cada arquivo.

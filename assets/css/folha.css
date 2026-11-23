@@ -38,7 +38,7 @@
 /* rótulo no topo da caixa, como na ficha impressa */
 .rotulo{
   display:block; text-align:center;
-  font-size:.6rem; font-weight:700; letter-spacing:.1em; text-transform:uppercase;
+  font-size:.7rem; font-weight:700; letter-spacing:.08em; text-transform:uppercase;
   color:var(--tinta-2); padding:.3rem .4rem .15rem; line-height:1.25;
   /* a moldura corta com clip-path: rotulo nenhum pode passar da caixa */
   overflow-wrap:anywhere;
@@ -92,7 +92,7 @@
 @media (min-width:760px){ .faixa-atributos{ grid-template-columns:repeat(3,minmax(0,1fr)) } }
 
 .reino__nome{
-  text-align:center; font-size:.68rem; font-weight:700;
+  text-align:center; font-size:.72rem; font-weight:700;
   letter-spacing:.12em; text-transform:uppercase; margin-bottom:.35rem;
 }
 .reino[data-reino="fisico"] .reino__nome{ color:var(--fisico) }
@@ -133,7 +133,7 @@
 }
 /* O escudo tem clip-path: o que passar da largura e' cortado de verdade,
    entao o rotulo precisa caber. "Deflexão" e' a palavra mais longa daqui. */
-.escudo .rotulo{ padding:.25rem .15rem 0; font-size:.55rem; letter-spacing:.04em }
+.escudo .rotulo{ padding:.25rem .15rem 0; font-size:.62rem; letter-spacing:.04em }
 .escudo__valor{
   display:block; font-family:var(--f-titulo); font-size:1.35rem;
   font-weight:600; line-height:1.15;
@@ -325,6 +325,8 @@
 @media (max-width:520px){
   .arma-folha__acoes{ grid-column:1/-1 }
   .linha-pericia__circulos button{ width:18px; height:18px }
+  /* centros a 24px: o alvo de toque fica dentro do mínimo do WCAG 2.5.8 */
+  .linha-pericia__circulos{ gap:6px }
   .atr-caixa__passos button{ min-height:32px }
   .recurso-folha__passos button{ min-height:32px }
 }
@@ -336,7 +338,7 @@
 .objetivo-folha__marcas button{ position:relative }
 .linha-pericia__circulos button::after,
 .objetivo-folha__marcas button::after{
-  content:""; position:absolute; inset:-8px -2px;
+  content:""; position:absolute; inset:-8px -3px;
 }
 
 /* ---------- campos numéricos com passos ---------- */
@@ -374,7 +376,7 @@
 .medida[data-estado="sobrando"]{ border-left-color:var(--ambar) }
 .medida[data-estado="excedido"]{ border-left-color:var(--granada) }
 .medida__rotulo{
-  display:block; font-size:.62rem; font-weight:700; letter-spacing:.08em;
+  display:block; font-size:.7rem; font-weight:700; letter-spacing:.06em;
   text-transform:uppercase; color:var(--tinta-3);
 }
 .medida__conta{ display:block; font-family:var(--f-titulo); font-size:1.35rem; font-weight:600; line-height:1.2 }
@@ -510,8 +512,8 @@ dialog.catalogo:not([open]){ display:none }
 }
 .condicao__passos button:hover{ background:rgba(255,255,255,.32) }
 .condicao__ver{
-  border:none; background:none; cursor:pointer; width:20px; font:inherit;
-  font-size:.7rem; font-weight:700; color:var(--tinta-3);
+  border:none; background:none; cursor:pointer; width:26px; min-height:26px; font:inherit;
+  font-size:.78rem; font-weight:700; color:var(--tinta-3);
   border-left:1px solid var(--borda);
 }
 .condicao--ativa .condicao__ver{ color:#fff; border-left-color:rgba(255,255,255,.35) }

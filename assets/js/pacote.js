@@ -106,7 +106,8 @@ async function abrirPacoteDaMesa(meta, senha) {
   const r = await fetch(new URL(`pacote.bin?v=${meta.id}`, PASTA_MESA));
   if (!r.ok) throw new Error('Não consegui baixar o pacote da mesa.');
   const cifrado = await r.arrayBuffer();
-  const base = await crypto.subtle.importKey('raw', new TextEncoder().encode(senha), 'PBKDF2', false, ['deriveKey']);
+  // sem acento e sem maiúscula: o teclado do celular não derruba ninguém
+  const base = await crypto.subtle.importKey('raw', new TextEncoder().encode(normalizar(senha).trim()), 'PBKDF2', false, ['deriveKey']);
   const chave = await crypto.subtle.deriveKey(
     { name: 'PBKDF2', hash: 'SHA-256', salt: b64(meta.sal), iterations: meta.iteracoes },
     base, { name: 'AES-GCM', length: 256 }, false, ['decrypt'],

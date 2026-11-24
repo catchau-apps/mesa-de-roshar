@@ -18,6 +18,9 @@ if (!senha) {
   process.exit(1);
 }
 
+// igual ao normalizar() do pacote.js: ignora acento, maiúscula e espaço nas pontas
+const normalizar = (t) => t.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim();
+
 const raiz = join(dirname(fileURLToPath(import.meta.url)), '..');
 const destino = join(raiz, 'assets', 'mesa');
 const ITERACOES = 600_000;
@@ -30,7 +33,7 @@ const gz = gzipSync(texto, { level: 9 });
 const sal = crypto.getRandomValues(new Uint8Array(16));
 const iv = crypto.getRandomValues(new Uint8Array(12));
 
-const base = await crypto.subtle.importKey('raw', new TextEncoder().encode(senha), 'PBKDF2', false, ['deriveKey']);
+const base = await crypto.subtle.importKey('raw', new TextEncoder().encode(normalizar(senha)), 'PBKDF2', false, ['deriveKey']);
 const chave = await crypto.subtle.deriveKey(
   { name: 'PBKDF2', hash: 'SHA-256', salt: sal, iterations: ITERACOES },
   base, { name: 'AES-GCM', length: 256 }, false, ['encrypt'],

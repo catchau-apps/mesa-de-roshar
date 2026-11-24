@@ -38,6 +38,8 @@ export function iniciarConstrutor(elemento, { aoCriar }) {
   btVoltar = raiz.querySelector('[data-voltar]');
   btAvancar = raiz.querySelector('[data-avancar]');
   ligar();
+  // pacote liberado com o construtor aberto: as listas do livro aparecem na hora
+  document.addEventListener('pacote:mudou', () => { if (!raiz.hidden && rascunho) desenhar(); });
 }
 
 export const temRascunho = () => !!ST.rascunho;
@@ -408,7 +410,7 @@ function pOrigens() {
         <input id="nova-cultura" data-nova-cultura placeholder="Ex.: Alethiana" style="flex:1;min-width:170px">
         <button class="btn btn--pequeno" data-acao="cultura-manual">Adicionar</button>
        </div>
-       <p class="campo__dica">Instale o pacote de dados (aba Regras) para ver a lista do livro.</p>
+       <p class="campo__dica">Digite a senha da mesa (aba Regras) para ver a lista do livro.</p>
        <div class="linha" style="margin-top:.6rem">
         ${rascunho.culturas.map((c, i) => `<span class="etiqueta">${esc(c)}
           <button type="button" class="etiqueta__tirar" data-acao="tirar-cultura" data-valor="${i}" aria-label="Remover ${esc(c)}">×</button></span>`).join('')}
@@ -649,7 +651,7 @@ function pTalentos() {
       <div class="aviso">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
           <circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 7.6h.01" stroke-linecap="round"/></svg>
-        <div>Sem o pacote de dados, a lista de talentos do livro não aparece. Escreva o nome à mão ou instale o pacote na aba Regras.</div>
+        <div>Sem o pacote de dados, a lista de talentos do livro não aparece. Escreva o nome à mão ou digite a senha da mesa na aba Regras.</div>
       </div>
       <div class="linha linha--campo">
         <label class="campo" style="flex:1"><span class="campo__rotulo">${cantor() ? 'Talento de formas iniciais' : 'Talento bônus'}</span>

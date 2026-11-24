@@ -44,7 +44,8 @@ function semPacote() {
             Arraste o <code>pacote.json</code> gerado a partir dos seus PDFs, ou escolha o arquivo.
             Ele fica guardado neste navegador e não sobe para lugar nenhum.
           </p>
-          <button class="btn btn--principal" data-acao="escolher">Escolher arquivo</button>
+          <button class="btn btn--principal" data-acao="senha-mesa">Tenho a senha da mesa</button>
+          <button class="btn" data-acao="escolher">Escolher arquivo</button>
           <input type="file" accept=".json,application/json" hidden data-arquivo>
         </div>
 
@@ -144,6 +145,8 @@ function ligar() {
       trecho.dataset.aberto = String(!aberto);
       alvo.textContent = aberto ? 'mostrar tudo' : 'recolher';
     },
+
+    'senha-mesa'() { document.dispatchEvent(new CustomEvent('pedir-senha-mesa')); },
 
     async 'remover-pacote'() {
       const ok = await confirmar({

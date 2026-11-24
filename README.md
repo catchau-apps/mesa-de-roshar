@@ -92,6 +92,20 @@ dá para versionar o pacote junto e ninguém precisa gerar o seu: tire a linha
 `pacote.json` do `.gitignore`. A ferramenta não muda; muda só quem consegue
 baixar.
 
+### Senha da mesa
+
+O site publicado traz o pacote **cifrado** (AES-256-GCM, chave derivada da
+senha com PBKDF2-SHA256, 600 mil iterações) em `assets/mesa/`. Sem a senha
+o arquivo é ilegível. Quem tem a senha digita uma vez; o navegador abre o
+pacote, guarda no IndexedDB e, se o pacote do site mudar, abre de novo
+sozinho. O link `app.html#criar` vai direto para o construtor.
+
+Para trocar o pacote ou a senha:
+
+```bash
+node ferramentas/cifrar_pacote.mjs "senha da mesa" dados/pacote.json
+```
+
 Atualizou o site? Gere o pacote de novo: o gerador passou a separar direito
 os talentos (pré-requisito completo, nomes inteiros, sem o texto do talento
 vizinho) e as culturas (resumo, lista de nomes e especialidade).

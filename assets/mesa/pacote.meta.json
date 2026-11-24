@@ -1,0 +1,9 @@
+{
+  "formato": "mesa-roshar/cifrado",
+  "versao": 1,
+  "id": "836e3b28bbad0c15",
+  "iteracoes": 600000,
+  "sal": "t2IMdjQepnVTGFlJl7sglg==",
+  "iv": "8YD24Q96b9pzBYpj",
+  "bytes": 1411584
+}

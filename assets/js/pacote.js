@@ -76,6 +76,72 @@ export async function instalarPacote(arquivo) {
 export async function removerPacote() {
   await apagarPacote();
   PACOTE = null;
+  // sem isso a senha guardada reinstalaria o pacote na próxima abertura
+  localStorage.removeItem('mesa-roshar:senha');
+  localStorage.removeItem('mesa-roshar:pacote-id');
+}
+
+/* ---- Pacote da mesa: vem junto com o site, trancado com a senha do grupo.
+   Quem digita a senha uma vez não precisa mais dela neste navegador; se o
+   pacote do site mudar, ele é aberto de novo sozinho com a senha guardada. */
+
+const SENHA_GUARDADA = 'mesa-roshar:senha';
+const ID_INSTALADO = 'mesa-roshar:pacote-id';
+const PASTA_MESA = new URL('../mesa/', import.meta.url);
+
+const b64 = (s) => Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
+
+export async function lerMetaDaMesa() {
+  try {
+    const r = await fetch(new URL('pacote.meta.json', PASTA_MESA), { cache: 'no-cache' });
+    if (!r.ok) return null;
+    const meta = await r.json();
+    return meta.formato === 'mesa-roshar/cifrado' ? meta : null;
+  } catch (e) {
+    return null;  // sem internet: segue com o que estiver guardado
+  }
+}
+
+async function abrirPacoteDaMesa(meta, senha) {
+  const r = await fetch(new URL(`pacote.bin?v=${meta.id}`, PASTA_MESA));
+  if (!r.ok) throw new Error('Não consegui baixar o pacote da mesa.');
+  const cifrado = await r.arrayBuffer();
+  const base = await crypto.subtle.importKey('raw', new TextEncoder().encode(senha), 'PBKDF2', false, ['deriveKey']);
+  const chave = await crypto.subtle.deriveKey(
+    { name: 'PBKDF2', hash: 'SHA-256', salt: b64(meta.sal), iterations: meta.iteracoes },
+    base, { name: 'AES-GCM', length: 256 }, false, ['decrypt'],
+  );
+  let gz;
+  try {
+    gz = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: b64(meta.iv) }, chave, cifrado);
+  } catch (e) {
+    throw new Error('Senha errada.');
+  }
+  const texto = await new Response(new Blob([gz]).stream().pipeThrough(new DecompressionStream('gzip'))).text();
+  return validarPacote(JSON.parse(texto));
+}
+
+/** Abre o pacote da mesa com a senha, guarda tudo e deixa pronto para uso. */
+export async function destrancarPacote(meta, senha) {
+  const dados = await abrirPacoteDaMesa(meta, senha.trim());
+  await gravarPacote(dados);
+  localStorage.setItem(SENHA_GUARDADA, senha.trim());
+  localStorage.setItem(ID_INSTALADO, meta.id);
+  return prepararPacote(dados);
+}
+
+/** Na abertura: usa o guardado, ou atualiza sozinho com a senha já digitada.
+    Devolve 'pronto', 'pedir-senha' (há pacote da mesa e falta a senha) ou 'sem-pacote'. */
+export async function prepararPacoteDaMesa() {
+  const guardado = await carregarPacoteSalvo();
+  const meta = await lerMetaDaMesa();
+  if (!meta) return guardado ? 'pronto' : 'sem-pacote';
+  const senha = localStorage.getItem(SENHA_GUARDADA);
+  if (guardado && localStorage.getItem(ID_INSTALADO) === meta.id) return 'pronto';
+  if (senha) {
+    try { await destrancarPacote(meta, senha); return 'pronto'; } catch (e) { /* senha trocou */ }
+  }
+  return guardado ? 'pronto' : 'pedir-senha';
 }
 
 /**

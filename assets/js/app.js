@@ -5,7 +5,7 @@
 import { ST, salvar, gravarAgora, fichaAtual, fichaNova, adicionarFicha,
          duplicarFicha, removerFicha, exportarTudo, importarTudo,
          seFalharAoSalvar } from './estado.js';
-import { carregarPacoteSalvo } from './pacote.js';
+import { prepararPacoteDaMesa, lerMetaDaMesa, destrancarPacote } from './pacote.js';
 import { $, $$, esc, recado, confirmar, ligarAcoes } from './ui.js';
 import { iniciarFicha, desenharFicha } from './painel-ficha.js';
 import { iniciarDados, desenharDados, rolarPericiaDireto, rolarArma } from './painel-dados.js';
@@ -38,6 +38,61 @@ function irPara(aba, { focar = false } = {}) {
   if (location.hash.slice(1) !== aba) history.replaceState(null, '', `#${aba}`);
   if (focar) $(`[data-painel="${aba}"]`)?.focus({ preventScroll: true });
   scrollTo({ top: 0, behavior: 'instant' });
+}
+
+/* #criar abre o construtor direto (link que o grupo compartilha). */
+function abrirRota(rota) {
+  if (rota === 'criar') {
+    irPara('ficha');
+    abrirConstrutor({ retomar: temRascunho() });
+    return;
+  }
+  irPara(rota);
+}
+
+/* ------------------------------------------------------- senha da mesa */
+async function pedirSenhaDaMesa() {
+  const meta = await lerMetaDaMesa();
+  if (!meta) { recado('O pacote da mesa não está disponível agora.'); return; }
+  const dlg = document.createElement('dialog');
+  dlg.innerHTML = `
+    <form method="dialog" data-senha-form>
+      <div class="dialogo__cabeca"><h2>Senha da mesa</h2></div>
+      <div class="dialogo__corpo">
+        <p>Digite a senha que o grupo combinou. É só uma vez neste aparelho: depois os talentos, culturas e regras ficam guardados aqui.</p>
+        <label class="campo" style="margin-top:.8rem">
+          <span class="campo__rotulo">Senha</span>
+          <input type="password" data-senha autocomplete="current-password" autocapitalize="none" spellcheck="false" required>
+        </label>
+        <p class="campo__dica" data-senha-erro role="alert"></p>
+      </div>
+      <div class="dialogo__pe">
+        <button class="btn" type="button" data-senha-depois>Agora não</button>
+        <button class="btn btn--principal" type="submit">Entrar</button>
+      </div>
+    </form>`;
+  document.body.append(dlg);
+  const fechar = () => { try { dlg.close(); } catch (e) {} dlg.remove(); };
+  dlg.addEventListener('cancel', (ev) => { ev.preventDefault(); fechar(); });
+  dlg.querySelector('[data-senha-depois]').addEventListener('click', fechar);
+  dlg.querySelector('[data-senha-form]').addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    const botao = dlg.querySelector('[type=submit]');
+    const erro = dlg.querySelector('[data-senha-erro]');
+    botao.disabled = true; botao.textContent = 'Abrindo…'; erro.textContent = '';
+    try {
+      const dados = await destrancarPacote(meta, dlg.querySelector('[data-senha]').value);
+      fechar();
+      document.dispatchEvent(new CustomEvent('pacote:mudou'));
+      irPara(ST.aba || 'ficha');
+      recado(`Pacote da mesa liberado — ${dados.paginas.length} páginas`);
+    } catch (e) {
+      erro.textContent = e.message;
+      botao.disabled = false; botao.textContent = 'Entrar';
+    }
+  });
+  dlg.showModal();
+  dlg.querySelector('[data-senha]').focus();
 }
 
 /* ---------------------------------------------------------- seletor de ficha */
@@ -165,13 +220,15 @@ async function iniciar() {
     if (campo) { campo.value = ev.detail; campo.dispatchEvent(new Event('input', { bubbles: true })); }
   });
 
-  addEventListener('hashchange', () => irPara(location.hash.slice(1)));
+  addEventListener('hashchange', () => abrirRota(location.hash.slice(1)));
+  document.addEventListener('pedir-senha-mesa', () => pedirSenhaDaMesa());
 
-  await carregarPacoteSalvo();
+  const situacao = await prepararPacoteDaMesa();
 
   desenharSeletor();
   atualizarBotaoRascunho();
-  irPara(location.hash.slice(1) || ST.aba || 'ficha');
+  abrirRota(location.hash.slice(1) || ST.aba || 'ficha');
+  if (situacao === 'pedir-senha') await pedirSenhaDaMesa();
 
   // Se o jogador fechou a criação no meio, oferece retomar assim que abrir.
   if (temRascunho()) recado('Você tem uma criação de personagem pela metade — retome no menu');

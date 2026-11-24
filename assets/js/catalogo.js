@@ -67,7 +67,7 @@ export function abrirDescricaoDoTalento(nome, ficha) {
       }).join('')
       : `<p class="campo__dica">${pacoteAtual()
           ? 'Esse talento não está no pacote — deve ser anotação sua. O texto fica por sua conta.'
-          : 'Instale o pacote de dados na aba Regras para ler a descrição do livro aqui.'}</p>`}
+          : 'Digite a senha da mesa na aba Regras para ler a descrição do livro aqui.'}</p>`}
     </div>`;
   document.body.append(dlg);
   const fechar = () => { dlg.close(); dlg.remove(); };
@@ -115,7 +115,7 @@ export function abrirDescricaoDaCondicao(nome) {
     ${doLivro
       ? `<p class="campo__dica" style="margin:.75rem 0 .25rem">Guia de Regras, página ${doLivro.pagina}</p>
          <p class="talento__texto">${esc(doLivro.trecho.slice(0, 900))}</p>`
-      : `<p class="campo__dica" style="margin-top:.75rem">Instale o pacote de dados na aba Regras
+      : `<p class="campo__dica" style="margin-top:.75rem">Digite a senha da mesa na aba Regras
            para ler o texto do livro aqui.</p>`}`);
 }
 
@@ -142,7 +142,7 @@ export function fichaDoTalento(nome) {
 export function abrirCatalogoDeTalentos(ficha, aoEscolher) {
   const talentos = todosOsTalentos();
   if (!talentos.length) {
-    recado('Instale o pacote de dados na aba Regras para ver os talentos do livro');
+    recado('Digite a senha da mesa na aba Regras para ver os talentos do livro');
     return;
   }
 
@@ -282,7 +282,7 @@ export function abrirDescricaoDaPericia(nome) {
         ? `<p class="talento__texto" style="max-height:60vh;overflow:auto">${esc(achada.descricao)}</p>`
         : `<p class="campo__dica">${p
             ? 'O pacote não trouxe a descrição desta perícia.'
-            : 'Instale o pacote de dados na aba Regras para ler a descrição do livro aqui.'}</p>`}
+            : 'Digite a senha da mesa na aba Regras para ler a descrição do livro aqui.'}</p>`}
     </div>`;
   document.body.append(dlg);
   const fechar = () => { dlg.close(); dlg.remove(); };
